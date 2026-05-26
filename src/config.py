@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 CACHE_DIR = DATA_DIR / "cache"
-DASHBOARD_DIR = ROOT / "dashboard"
+DASHBOARD_DIR = ROOT / "docs"
 
 for p in (DATA_DIR, CACHE_DIR, DASHBOARD_DIR):
     p.mkdir(parents=True, exist_ok=True)

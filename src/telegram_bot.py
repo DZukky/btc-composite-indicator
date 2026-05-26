@@ -70,30 +70,42 @@ def format_message(result: dict, dashboard_url: str | None = None) -> str:
 
 
 def send(result: dict, dashboard_url: str | None = None) -> bool:
+    """Invia il messaggio a uno o più chat_id.
+
+    Env vars:
+      TELEGRAM_BOT_TOKEN  → token dal @BotFather
+      TELEGRAM_CHAT_IDS   → lista comma-separated di chat_id (es. "12345,67890")
+      TELEGRAM_CHAT_ID    → singolo chat_id (legacy, supportato come fallback)
+      DASHBOARD_URL       → opzionale, link al dashboard pubblico
+    """
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    raw_ids = os.environ.get("TELEGRAM_CHAT_IDS") or os.environ.get("TELEGRAM_CHAT_ID")
     dashboard_url = dashboard_url or os.environ.get("DASHBOARD_URL")
 
-    if not token or not chat_id:
-        print("[telegram] TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID non impostati, skip invio")
+    if not token or not raw_ids:
+        print("[telegram] TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_IDS non impostati, skip invio")
         return False
 
+    chat_ids = [c.strip() for c in raw_ids.split(",") if c.strip()]
     text = format_message(result, dashboard_url)
-    r = requests.post(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        json={
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        },
-        timeout=20,
-    )
-    if r.status_code >= 300:
-        print(f"[telegram] errore invio: {r.status_code} {r.text[:200]}")
-        return False
-    print(f"[telegram] inviato a chat {chat_id}")
-    return True
+    ok = True
+    for chat_id in chat_ids:
+        r = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            },
+            timeout=20,
+        )
+        if r.status_code >= 300:
+            print(f"[telegram] errore invio a {chat_id}: {r.status_code} {r.text[:200]}")
+            ok = False
+        else:
+            print(f"[telegram] inviato a chat {chat_id}")
+    return ok
 
 
 def get_updates_chat_ids(token: str) -> list[dict]:
