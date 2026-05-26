@@ -1,0 +1,132 @@
+"""Telegram bot: invia il riepilogo giornaliero come messaggio HTML.
+
+Env vars:
+    TELEGRAM_BOT_TOKEN  → ottenuto da @BotFather su Telegram
+    TELEGRAM_CHAT_ID    → ID della tua chat con il bot (numero, può essere negativo per gruppi)
+    DASHBOARD_URL       → opzionale, link cliccabile alla dashboard pubblica
+"""
+from __future__ import annotations
+
+import os
+import requests
+
+
+SIGNAL_EMOJI = {
+    "STRONG_SELL": "🔴",
+    "DERISK":      "🟠",
+    "HOLD":        "⚪",
+    "ACCUMULATE":  "🟢",
+    "STRONG_BUY":  "🟢",
+}
+
+
+def _format_value(name: str, v) -> str:
+    if v is None:
+        return "—"
+    if isinstance(v, bool):
+        return "Sì" if v else "No"
+    if name in ("mvrv_z", "rsi_weekly", "puell"):
+        return f"{v:.2f}"
+    return f"{v:.3f}"
+
+
+def format_message(result: dict, dashboard_url: str | None = None) -> str:
+    emoji = SIGNAL_EMOJI.get(result["signal"], "")
+    btc = f"${result['btc_close']:,.0f}" if result["btc_close"] else "n/a"
+
+    indicators_lines = []
+    label_map = {
+        "pi_cycle":     "Pi Cycle",
+        "mvrv_z":       "MVRV Z",
+        "mayer":        "Mayer",
+        "two_year_ma":  "2Y MA",
+        "rsi_weekly":   "RSI W",
+        "nupl":         "NUPL",
+        "puell":        "Puell",
+        "hash_ribbons": "Hash Ribb.",
+        "bmsb":         "BMSB",
+    }
+    zone_emoji = {"red": "🔴", "orange": "🟠", "neutral": "⚪", "lime": "🟢", "green": "🟢", "n/a": "❔"}
+    for k, label in label_map.items():
+        info = result["indicators"].get(k, {})
+        zone = info.get("zone", "n/a")
+        val = _format_value(k, info.get("value"))
+        indicators_lines.append(f"  {zone_emoji.get(zone, '⚪')} <b>{label}</b>: {val}")
+
+    msg = (
+        f"<b>BTC Composite — {result['date']}</b>\n"
+        f"BTC: <b>{btc}</b>\n\n"
+        f"{emoji} Signal: <b>{result['signal']}</b>\n"
+        f"Composite: <b>{result['composite_score']}/100</b>\n"
+        f"Target esposizione BTC: <b>{result['target_btc_exposure_pct']}%</b>\n"
+        f"Green: {result['green_count']}/9 · Red: {result['red_count']}/9\n\n"
+        f"<b>Indicatori</b>\n" + "\n".join(indicators_lines)
+    )
+
+    if dashboard_url:
+        msg += f"\n\n🔗 <a href='{dashboard_url}'>Apri dashboard completa</a>"
+
+    return msg
+
+
+def send(result: dict, dashboard_url: str | None = None) -> bool:
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    dashboard_url = dashboard_url or os.environ.get("DASHBOARD_URL")
+
+    if not token or not chat_id:
+        print("[telegram] TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID non impostati, skip invio")
+        return False
+
+    text = format_message(result, dashboard_url)
+    r = requests.post(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        json={
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        },
+        timeout=20,
+    )
+    if r.status_code >= 300:
+        print(f"[telegram] errore invio: {r.status_code} {r.text[:200]}")
+        return False
+    print(f"[telegram] inviato a chat {chat_id}")
+    return True
+
+
+def get_updates_chat_ids(token: str) -> list[dict]:
+    """Helper per scoprire il CHAT_ID dopo che l'utente ha scritto al bot.
+
+    Esempio di output: [{"chat_id": 123456789, "name": "Davide", "text": "/start"}, ...]
+    """
+    r = requests.get(f"https://api.telegram.org/bot{token}/getUpdates", timeout=20)
+    r.raise_for_status()
+    data = r.json()
+    out = []
+    for u in data.get("result", []):
+        msg = u.get("message") or u.get("edited_message") or {}
+        chat = msg.get("chat", {})
+        if "id" in chat:
+            out.append({
+                "chat_id": chat["id"],
+                "name": chat.get("first_name") or chat.get("title") or chat.get("username"),
+                "text": msg.get("text", ""),
+            })
+    return out
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "discover":
+        token = os.environ.get("TELEGRAM_BOT_TOKEN") or sys.argv[2] if len(sys.argv) > 2 else None
+        if not token:
+            print("Usage: python -m src.telegram_bot discover <BOT_TOKEN>")
+            sys.exit(1)
+        chats = get_updates_chat_ids(token)
+        if not chats:
+            print("Nessun messaggio trovato. Scrivi /start al bot e riprova.")
+        else:
+            for c in chats:
+                print(f"chat_id={c['chat_id']}  name={c['name']}  text={c['text']!r}")

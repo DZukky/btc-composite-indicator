@@ -1,0 +1,65 @@
+{
+  "date": "2026-05-26",
+  "btc_close": 76672.98,
+  "composite_score": 17.22,
+  "red_count": 0,
+  "green_count": 5,
+  "signal": "STRONG_BUY",
+  "target_btc_exposure_pct": 96.4,
+  "indicators": {
+    "pi_cycle": {
+      "value": 0.38441708715283085,
+      "score": 0,
+      "zone": "green",
+      "weight": 0.15
+    },
+    "mayer": {
+      "value": 0.9547660010289851,
+      "score": 0,
+      "zone": "green",
+      "weight": 0.12
+    },
+    "two_year_ma": {
+      "value": 0.8764810123746446,
+      "score": 0,
+      "zone": "green",
+      "weight": 0.1
+    },
+    "mvrv_z": {
+      "value": 0.7806,
+      "score": 19.515,
+      "zone": "green",
+      "weight": 0.18
+    },
+    "rsi_weekly": {
+      "value": 45.77181216987537,
+      "score": 26.286353616458946,
+      "zone": "lime",
+      "weight": 0.1
+    },
+    "nupl": {
+      "value": 0.3053,
+      "score": 44.4125,
+      "zone": "neutral",
+      "weight": 0.1
+    },
+    "puell": {
+      "value": 0.9319,
+      "score": 29.710714285714282,
+      "zone": "lime",
+      "weight": 0.1
+    },
+    "hash_ribbons": {
+      "value": 0.9937826926926485,
+      "score": 45.85512846176568,
+      "zone": "neutral",
+      "weight": 0.08
+    },
+    "bmsb": {
+      "value": 0.9895812554512541,
+      "score": 0,
+      "zone": "green",
+      "weight": 0.07
+    }
+  }
+}
