@@ -15,8 +15,24 @@ SIGNAL_EMOJI = {
     "STRONG_SELL": "🔴",
     "DERISK":      "🟠",
     "HOLD":        "⚪",
-    "ACCUMULATE":  "🟢",
-    "STRONG_BUY":  "🟢",
+    "ACCUMULATE":  "🌱",
+    "STRONG_BUY":  "💚",
+}
+
+SIGNAL_LABEL_IT = {
+    "STRONG_SELL": "ALLEGGERISCI FORTEMENTE",
+    "DERISK":      "INIZIA A RIDURRE",
+    "HOLD":        "MANTIENI POSIZIONE",
+    "ACCUMULATE":  "ACCUMULA",
+    "STRONG_BUY":  "OCCASIONE D'INGRESSO",
+}
+
+SIGNAL_ACTION_IT = {
+    "STRONG_SELL": "Riduci immediatamente l'esposizione BTC. Storicamente seguono drawdown del 50-85%.",
+    "DERISK":      "Alleggerisci progressivamente. Più indicatori entrano in zona di surriscaldamento.",
+    "HOLD":        "Niente di particolare da fare. Trend follow.",
+    "ACCUMULATE":  "Compra gradualmente, niente fretta. Zona favorevole.",
+    "STRONG_BUY":  "Momento storicamente favorevole all'accumulo aggressivo.",
 }
 
 
@@ -32,39 +48,22 @@ def _format_value(name: str, v) -> str:
 
 def format_message(result: dict, dashboard_url: str | None = None) -> str:
     emoji = SIGNAL_EMOJI.get(result["signal"], "")
+    label = SIGNAL_LABEL_IT.get(result["signal"], result["signal"])
+    action = SIGNAL_ACTION_IT.get(result["signal"], "")
     btc = f"${result['btc_close']:,.0f}" if result["btc_close"] else "n/a"
 
-    indicators_lines = []
-    label_map = {
-        "pi_cycle":     "Pi Cycle",
-        "mvrv_z":       "MVRV Z",
-        "mayer":        "Mayer",
-        "two_year_ma":  "2Y MA",
-        "rsi_weekly":   "RSI W",
-        "nupl":         "NUPL",
-        "puell":        "Puell",
-        "hash_ribbons": "Hash Ribb.",
-        "bmsb":         "BMSB",
-    }
-    zone_emoji = {"red": "🔴", "orange": "🟠", "neutral": "⚪", "lime": "🟢", "green": "🟢", "n/a": "❔"}
-    for k, label in label_map.items():
-        info = result["indicators"].get(k, {})
-        zone = info.get("zone", "n/a")
-        val = _format_value(k, info.get("value"))
-        indicators_lines.append(f"  {zone_emoji.get(zone, '⚪')} <b>{label}</b>: {val}")
-
     msg = (
-        f"<b>BTC Composite — {result['date']}</b>\n"
-        f"BTC: <b>{btc}</b>\n\n"
-        f"{emoji} Signal: <b>{result['signal']}</b>\n"
-        f"Composite: <b>{result['composite_score']}/100</b>\n"
-        f"Target esposizione BTC: <b>{result['target_btc_exposure_pct']}%</b>\n"
-        f"Green: {result['green_count']}/9 · Red: {result['red_count']}/9\n\n"
-        f"<b>Indicatori</b>\n" + "\n".join(indicators_lines)
+        f"<b>📅 BTC Composite — {result['date']}</b>\n"
+        f"BTC oggi: <b>{btc}</b>\n\n"
+        f"{emoji} <b>{label}</b>\n"
+        f"<i>{action}</i>\n\n"
+        f"💰 <b>Esposizione consigliata: {result['target_btc_exposure_pct']}%</b>\n"
+        f"📊 Composite score: {result['composite_score']}/100\n"
+        f"🟢 Favorevoli: {result['green_count']}/9 · 🔴 Negativi: {result['red_count']}/9"
     )
 
     if dashboard_url:
-        msg += f"\n\n🔗 <a href='{dashboard_url}'>Apri dashboard completa</a>"
+        msg += f"\n\n🔗 <a href='{dashboard_url}'>Vedi dashboard completa</a>"
 
     return msg
 

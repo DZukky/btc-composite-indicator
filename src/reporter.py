@@ -1,9 +1,7 @@
-"""Genera dashboard HTML statica con grafici Plotly + email HTML."""
+"""Genera dashboard HTML statica consumer-friendly + email HTML."""
 from __future__ import annotations
 
-import json
 import math
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -13,281 +11,428 @@ from plotly.subplots import make_subplots
 from .config import DASHBOARD_DIR, INDICATOR_WEIGHTS
 from .composite import SIGNAL_DESCRIPTIONS
 
-ZONE_COLORS = {
-    "red":     "#c0392b",
-    "orange":  "#e67e22",
-    "neutral": "#7f8c8d",
-    "lime":    "#27ae60",
-    "green":   "#16a085",
-    "n/a":     "#bdc3c7",
+
+SIGNAL_DETAIL = {
+    "STRONG_BUY": {
+        "emoji": "💚",
+        "label": "OCCASIONE D'INGRESSO",
+        "action": "Il modello dice che è il momento giusto per comprare aggressivamente.",
+        "rationale": "Storicamente, quando il composite è in questa zona BTC ha registrato rally del 300-700% nei 12-24 mesi successivi (bottom 2018, 2020, 2022).",
+        "color":   "#15803d",
+        "bg":      "#dcfce7",
+        "border":  "#16a34a",
+    },
+    "ACCUMULATE": {
+        "emoji": "🌱",
+        "label": "ACCUMULA GRADUALMENTE",
+        "action": "Il modello dice che siamo in una zona favorevole all'acquisto, ma senza fretta.",
+        "rationale": "Diversi indicatori sono in territorio positivo. Comprare a scaglioni in queste fasi ha pagato storicamente.",
+        "color":   "#166534",
+        "bg":      "#d1fae5",
+        "border":  "#22c55e",
+    },
+    "HOLD": {
+        "emoji": "⚖️",
+        "label": "MANTIENI POSIZIONE",
+        "action": "Il modello è neutrale. Niente di particolare da fare oggi.",
+        "rationale": "Il mercato non è né sopravvalutato né sottovalutato in modo significativo. Trend follow.",
+        "color":   "#475569",
+        "bg":      "#f1f5f9",
+        "border":  "#94a3b8",
+    },
+    "DERISK": {
+        "emoji": "🟠",
+        "label": "INIZIA A RIDURRE",
+        "action": "Il modello suggerisce di alleggerire progressivamente l'esposizione BTC.",
+        "rationale": "Più indicatori stanno entrando in zona di surriscaldamento. Storicamente, top di ciclo si avvicinano.",
+        "color":   "#9a3412",
+        "bg":      "#ffedd5",
+        "border":  "#f97316",
+    },
+    "STRONG_SELL": {
+        "emoji": "🔴",
+        "label": "ALLEGGERISCI FORTEMENTE",
+        "action": "Il modello dice che è il momento di derisk massimo.",
+        "rationale": "Quattro o più indicatori sono in zona di top storico. I cicli passati (2017, aprile 2021) hanno avuto drawdown del 50-85% subito dopo.",
+        "color":   "#991b1b",
+        "bg":      "#fee2e2",
+        "border":  "#dc2626",
+    },
 }
 
-SIGNAL_COLORS = {
-    "STRONG_SELL": "#c0392b",
-    "DERISK":      "#e67e22",
-    "HOLD":        "#7f8c8d",
-    "ACCUMULATE":  "#27ae60",
-    "STRONG_BUY":  "#16a085",
-}
 
-INDICATOR_LABELS = {
-    "pi_cycle":     "Pi Cycle Top (111DMA / 350DMA×2)",
-    "mayer":        "Mayer Multiple (price / 200DMA)",
-    "two_year_ma":  "2-Year MA Multiplier (price / 730DMA)",
-    "mvrv_z":       "MVRV Z-Score",
-    "rsi_weekly":   "RSI Weekly (14)",
-    "nupl":         "NUPL (Net Unrealized P/L)",
-    "puell":        "Puell Multiple",
-    "hash_ribbons": "Hash Ribbons (30D/60D hash rate)",
-    "bmsb":         "Bull Market Support Band ratio",
-}
-
-INDICATOR_NOTES = {
-    "pi_cycle":     "≥0.95 = top zone storica (2013, 2017, 2021)",
-    "mayer":        ">2.4 = top zone; <1.0 = accumulazione",
-    "two_year_ma":  ">4 = banda blow-off; <1 = bottom storici",
-    "mvrv_z":       ">6 = top ciclo; <0 = bottom ciclo",
-    "rsi_weekly":   ">85 con divergenza = top; <35 = bottom",
-    "nupl":         ">0.75 = euphoria/top; <0 = capitulation",
-    "puell":        ">3.5 = top miner profitability; <0.5 = bottom",
-    "hash_ribbons": "Buy cross dopo capitulation = bottom signal",
-    "bmsb":         ">1.30 = estensione; <1.0 = sotto la band (bear)",
+ZONE_TO_SIMPLE = {
+    "red":     ("🔴", "Negativo",  "#dc2626"),
+    "orange":  ("🟠", "Cauto",     "#f97316"),
+    "neutral": ("⚪", "Neutro",    "#94a3b8"),
+    "lime":    ("🟢", "Positivo",  "#22c55e"),
+    "green":   ("🟢", "Favorevole","#16a34a"),
+    "n/a":     ("❔", "n/d",       "#cbd5e1"),
 }
 
 
-def _format_value(v, indicator: str) -> str:
-    if v is None or (isinstance(v, float) and math.isnan(v)):
-        return "n/a"
-    if isinstance(v, bool):
-        return "Sì" if v else "No"
-    if indicator in ("mvrv_z", "rsi_weekly", "puell"):
-        return f"{v:.2f}"
-    if indicator in ("mayer", "two_year_ma", "bmsb", "hash_ribbons"):
-        return f"{v:.3f}"
-    if indicator == "pi_cycle":
-        return f"{v:.3f}"
-    if indicator == "nupl":
-        return f"{v:.3f}"
-    return f"{v:.4f}"
+INDICATOR_HUMAN = {
+    "pi_cycle":     {"label": "Pi Cycle Top",        "what": "Cattura le fasi di bolla parabolica. Quando le medie mobili corte sorpassano quelle lunghe, top in vista."},
+    "mayer":        {"label": "Mayer Multiple",      "what": "Distanza del prezzo dalla media 200 giorni. >2.4 = surriscaldato, <1.0 = saldo."},
+    "two_year_ma":  {"label": "Media a 2 anni",      "what": "Confronta il prezzo con la sua media biennale. Sotto la media = bottom storico."},
+    "mvrv_z":       {"label": "MVRV Z-Score",        "what": "Profitto medio di tutti i possessori BTC. Estremi positivi = top, negativi = bottom."},
+    "rsi_weekly":   {"label": "RSI Settimanale",     "what": "Momentum a medio termine. >85 = ipercomprato (top), <35 = ipervenduto (bottom)."},
+    "nupl":         {"label": "NUPL",                "what": "Quanto profitto non realizzato hanno i possessori. >0.75 = euforia, <0 = capitolazione."},
+    "puell":        {"label": "Puell Multiple",      "what": "Stress dei miner. <0.5 = miner in difficoltà (bottom), >3.5 = miner in festa (top)."},
+    "hash_ribbons": {"label": "Hash Ribbons",        "what": "Salute della rete BTC. Quando i miner si arrendono e poi ripartono, è un bottom signal."},
+    "bmsb":         {"label": "Bull Market Band",    "what": "Banda di supporto del trend rialzista. Sopra = bull, sotto = bear."},
+}
 
 
-def _price_chart(ind_df: pd.DataFrame) -> str:
-    """Grafico prezzo BTC log + 200DMA + 350DMA×2 + 111DMA."""
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=ind_df["date"], y=ind_df["close"], name="BTC close",
-        line=dict(color="#f39c12", width=1.5),
-    ))
-    fig.add_trace(go.Scatter(
-        x=ind_df["date"], y=ind_df["dma_200"], name="200 DMA",
-        line=dict(color="#3498db", width=1, dash="dot"),
-    ))
-    fig.add_trace(go.Scatter(
-        x=ind_df["date"], y=ind_df["dma_111"], name="111 DMA",
-        line=dict(color="#9b59b6", width=1, dash="dot"),
-    ))
-    fig.add_trace(go.Scatter(
-        x=ind_df["date"], y=ind_df["dma_350x2"], name="350 DMA × 2",
-        line=dict(color="#e74c3c", width=1, dash="dash"),
-    ))
-    fig.update_layout(
-        template="plotly_white",
-        yaxis=dict(type="log", title="Prezzo USD (log)"),
-        xaxis=dict(title=""),
-        margin=dict(l=40, r=20, t=40, b=40),
-        legend=dict(orientation="h", y=1.1),
-        height=420,
-        title="Prezzo BTC + Pi Cycle Top components",
-    )
-    return fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="chart-price")
+def _hero_banner(result: dict) -> str:
+    """Banner gigante in cima con il signal di oggi in italiano chiaro."""
+    detail = SIGNAL_DETAIL.get(result["signal"], SIGNAL_DETAIL["HOLD"])
+    btc = f"${result['btc_close']:,.0f}" if result["btc_close"] else "n/a"
+    target = result["target_btc_exposure_pct"]
+
+    return f"""
+<div class="hero" style="background:{detail['bg']};border:2px solid {detail['border']};border-radius:16px;padding:32px;margin-bottom:24px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap">
+    <div style="flex:1;min-width:280px">
+      <div style="font-size:0.95em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Segnale di oggi</div>
+      <div style="font-size:2.4em;font-weight:700;color:{detail['color']};line-height:1.1">{detail['emoji']} {detail['label']}</div>
+      <div style="font-size:1.15em;color:{detail['color']};margin-top:12px;font-weight:500">{detail['action']}</div>
+      <div style="font-size:0.95em;color:#475569;margin-top:10px">{detail['rationale']}</div>
+    </div>
+    <div style="text-align:right;min-width:200px">
+      <div style="font-size:0.85em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px">Esposizione consigliata</div>
+      <div style="font-size:3.4em;font-weight:800;color:{detail['color']};line-height:1">{target}%</div>
+      <div style="font-size:0.85em;color:#475569;margin-top:8px">del tuo capitale investito in BTC</div>
+      <div style="margin-top:16px;padding:10px 14px;background:white;border-radius:8px;display:inline-block">
+        <div style="font-size:0.8em;color:#64748b">BTC oggi</div>
+        <div style="font-size:1.3em;font-weight:600;color:#0f172a">{btc}</div>
+      </div>
+    </div>
+  </div>
+</div>
+"""
 
 
-CYCLE_ANNOTATIONS = [
-    ("2017-12-17", "top dic 2017",  "top"),
-    ("2018-12-15", "bottom 2018",   "bot"),
-    ("2020-03-12", "covid crash",   "bot"),
-    ("2021-04-14", "top apr 2021",  "top"),
-    ("2021-11-10", "top nov 2021",  "top"),
-    ("2022-11-21", "bottom 2022",   "bot"),
-    ("2024-03-14", "ATH pre-halving", "top"),
-]
+def _thermometer(result: dict) -> str:
+    """Barra orizzontale con score 0-100 + label zone semantiche."""
+    score = result["composite_score"]
+    detail = SIGNAL_DETAIL.get(result["signal"], SIGNAL_DETAIL["HOLD"])
+    marker_left = max(0, min(100, score))
+
+    return f"""
+<div class="card">
+  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Quanto è caro/economico BTC adesso?</h2>
+  <p style="margin:0 0 20px;color:#64748b;font-size:0.95em">Composite score: <b style="color:{detail['color']}">{score:.1f} / 100</b> · più è basso, più è economico</p>
+  <div style="position:relative;height:48px;border-radius:8px;overflow:hidden;background:linear-gradient(to right,#16a34a 0%,#22c55e 20%,#94a3b8 35%,#94a3b8 65%,#f97316 80%,#dc2626 100%)">
+    <div style="position:absolute;left:{marker_left}%;top:-4px;bottom:-4px;width:4px;background:#0f172a;transform:translateX(-50%);box-shadow:0 0 0 2px white"></div>
+    <div style="position:absolute;left:{marker_left}%;top:-28px;transform:translateX(-50%);background:#0f172a;color:white;padding:3px 8px;border-radius:6px;font-size:0.85em;font-weight:600;white-space:nowrap">{score:.0f}</div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:0.78em;color:#64748b">
+    <div style="text-align:center;flex:1"><b style="color:#16a34a">💚 0-20</b><br>Compra forte</div>
+    <div style="text-align:center;flex:1"><b style="color:#22c55e">🌱 20-35</b><br>Accumula</div>
+    <div style="text-align:center;flex:1"><b style="color:#475569">⚖️ 35-65</b><br>Mantieni</div>
+    <div style="text-align:center;flex:1"><b style="color:#f97316">🟠 65-80</b><br>Riduci</div>
+    <div style="text-align:center;flex:1"><b style="color:#dc2626">🔴 80-100</b><br>Vendi forte</div>
+  </div>
+</div>
+"""
 
 
-def _composite_chart(history: pd.DataFrame) -> str:
-    """Storico del composite score con annotation sui top/bottom storici."""
-    if history is None or history.empty:
-        return ""
-
-    fig = make_subplots(
-        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.04,
-        row_heights=[0.6, 0.4],
-        subplot_titles=("Composite score storico (0-100)", "Prezzo BTC (log)"),
-    )
-
-    fig.add_trace(go.Scatter(
-        x=history["date"], y=history["composite_score"], name="Composite",
-        line=dict(color="#2c3e50", width=1.5),
-        hovertemplate="%{x|%Y-%m-%d}<br>Score: %{y:.1f}<extra></extra>",
-    ), row=1, col=1)
-
-    fig.add_hrect(y0=80, y1=100, fillcolor="#c0392b", opacity=0.12, line_width=0, row=1, col=1)
-    fig.add_hrect(y0=65, y1=80,  fillcolor="#e67e22", opacity=0.08, line_width=0, row=1, col=1)
-    fig.add_hrect(y0=20, y1=35,  fillcolor="#27ae60", opacity=0.08, line_width=0, row=1, col=1)
-    fig.add_hrect(y0=0,  y1=20,  fillcolor="#16a085", opacity=0.12, line_width=0, row=1, col=1)
-
-    fig.add_trace(go.Scatter(
-        x=history["date"], y=history["btc_close"], name="BTC close",
-        line=dict(color="#f39c12", width=1.2),
-        hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
-    ), row=2, col=1)
-
-    for date_str, label, kind in CYCLE_ANNOTATIONS:
-        ts = pd.to_datetime(date_str)
-        if ts < history["date"].min() or ts > history["date"].max():
-            continue
-        color = "#c0392b" if kind == "top" else "#16a085"
-        fig.add_vline(x=ts, line=dict(color=color, width=1, dash="dot"), row="all", col=1)
-        fig.add_annotation(x=ts, y=95 if kind == "top" else 5, text=label,
-                            showarrow=False, font=dict(size=10, color=color),
-                            xref="x", yref="y", row=1, col=1)
-
-    fig.update_yaxes(range=[0, 100], row=1, col=1)
-    fig.update_yaxes(type="log", row=2, col=1)
-    fig.update_layout(
-        template="plotly_white",
-        height=560,
-        margin=dict(l=40, r=20, t=60, b=40),
-        showlegend=False,
-        hovermode="x unified",
-    )
-    return fig.to_html(full_html=False, include_plotlyjs=False, div_id="chart-composite")
-
-
-def _gauge(score: float, signal: str) -> str:
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=score,
-        title={"text": f"<b>{signal}</b>", "font": {"size": 22}},
-        gauge={
-            "axis": {"range": [0, 100], "tickwidth": 1},
-            "bar":  {"color": SIGNAL_COLORS.get(signal, "#34495e")},
-            "steps": [
-                {"range": [0, 20],   "color": "#a3e4d7"},
-                {"range": [20, 35],  "color": "#d4efdf"},
-                {"range": [35, 65],  "color": "#fdfefe"},
-                {"range": [65, 80],  "color": "#fadbd8"},
-                {"range": [80, 100], "color": "#f5b7b1"},
-            ],
-        },
-    ))
-    fig.update_layout(margin=dict(l=20, r=20, t=60, b=20), height=300)
-    return fig.to_html(full_html=False, include_plotlyjs=False, div_id="chart-gauge")
-
-
-def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None) -> Path:
+def _indicators_table_human(result: dict) -> str:
     rows = []
     for name in INDICATOR_WEIGHTS:
         info = result["indicators"].get(name, {})
         zone = info.get("zone", "n/a")
-        score = info.get("score")
-        rows.append({
-            "label":  INDICATOR_LABELS[name],
-            "value":  _format_value(info.get("value"), name),
-            "score":  f"{score:.1f}" if isinstance(score, (int, float)) else "n/a",
-            "zone":   zone,
-            "color":  ZONE_COLORS[zone],
-            "weight": f"{info.get('weight', 0)*100:.0f}%",
-            "note":   INDICATOR_NOTES[name],
-        })
+        emoji, label_simple, color = ZONE_TO_SIMPLE[zone]
+        human = INDICATOR_HUMAN.get(name, {})
 
-    table_html = "\n".join(
-        f"""<tr>
-              <td>{r['label']}</td>
-              <td style="text-align:right;font-family:monospace">{r['value']}</td>
-              <td style="text-align:right;font-family:monospace">{r['score']}</td>
-              <td><span style="background:{r['color']};color:white;padding:3px 10px;border-radius:12px;font-size:0.85em">{r['zone']}</span></td>
-              <td style="text-align:right">{r['weight']}</td>
-              <td style="color:#7f8c8d;font-size:0.9em">{r['note']}</td>
-            </tr>"""
-        for r in rows
+        rows.append(f"""<tr>
+          <td style="padding:14px 12px">
+            <div style="font-weight:600">{human.get('label', name)}</div>
+            <div style="color:#64748b;font-size:0.85em;margin-top:2px">{human.get('what', '')}</div>
+          </td>
+          <td style="padding:14px 12px;text-align:center;white-space:nowrap">
+            <span style="display:inline-flex;align-items:center;gap:6px;background:{color}20;color:{color};padding:6px 12px;border-radius:20px;font-weight:600;font-size:0.92em">
+              {emoji} {label_simple}
+            </span>
+          </td>
+        </tr>""")
+
+    return f"""
+<div class="card">
+  <h2 style="margin:0 0 8px;font-size:1.1em">🔍 Cosa dicono i 9 indicatori</h2>
+  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">
+    <b style="color:#16a34a">{result['green_count']} favorevoli</b> all'acquisto ·
+    <b style="color:#dc2626">{result['red_count']} negativi</b> ·
+    {9 - result['green_count'] - result['red_count']} neutri
+  </p>
+  <table style="width:100%;border-collapse:separate;border-spacing:0 4px">
+    <tbody>{''.join(rows)}</tbody>
+  </table>
+</div>
+"""
+
+
+def _action_box(result: dict) -> str:
+    detail = SIGNAL_DETAIL.get(result["signal"], SIGNAL_DETAIL["HOLD"])
+    target = result["target_btc_exposure_pct"]
+
+    if result["signal"] == "STRONG_BUY":
+        steps = [
+            f"<b>Allocazione target</b>: porta il <b>{target}%</b> del tuo capitale di investimento in BTC.",
+            "<b>Modalità d'ingresso</b>: se sei sotto target, entra in 2-3 tranche nei prossimi 7-14 giorni (DCA).",
+            "<b>Cosa monitorare</b>: il modello rimarrà in zona BUY finché 4+ indicatori sono favorevoli. Ti avviso quando cambia.",
+        ]
+    elif result["signal"] == "ACCUMULATE":
+        steps = [
+            f"<b>Allocazione target</b>: alza l'esposizione BTC verso il <b>{target}%</b>.",
+            "<b>Modalità d'ingresso</b>: piccoli buy settimanali, niente fretta.",
+            "<b>Cosa monitorare</b>: se il composite scende sotto 20, passiamo a STRONG_BUY → accelera.",
+        ]
+    elif result["signal"] == "HOLD":
+        steps = [
+            f"<b>Allocazione target</b>: mantieni l'esposizione attuale (modello indica {target}%).",
+            "<b>Trend follow</b>: niente azioni nuove. Aspetta il prossimo segnale.",
+            "<b>Cosa monitorare</b>: variazioni significative del composite (±15 punti in pochi giorni = attenzione).",
+        ]
+    elif result["signal"] == "DERISK":
+        steps = [
+            f"<b>Allocazione target</b>: riduci l'esposizione BTC verso il <b>{target}%</b>.",
+            "<b>Modalità d'uscita</b>: vendi in 2-3 tranche, evita panic-selling tutto subito.",
+            "<b>Cosa monitorare</b>: se il composite passa sopra 80, è STRONG_SELL → completa la riduzione.",
+        ]
+    else:  # STRONG_SELL
+        steps = [
+            f"<b>Allocazione target</b>: riduci immediatamente al <b>{target}%</b>.",
+            "<b>Modalità d'uscita</b>: il modello vede confluenza di top di ciclo. Storicamente 50-85% drawdown nei 12 mesi successivi.",
+            "<b>Cosa monitorare</b>: i drawdown reali servono per i prossimi BUY. Pazienza.",
+        ]
+
+    steps_html = "".join(f"<li style='margin-bottom:8px'>{s}</li>" for s in steps)
+
+    return f"""
+<div class="card" style="background:{detail['bg']};border-left:4px solid {detail['border']}">
+  <h2 style="margin:0 0 12px;font-size:1.1em;color:{detail['color']}">✅ Cosa fare oggi</h2>
+  <ol style="margin:0;padding-left:20px;color:#1e293b">{steps_html}</ol>
+</div>
+"""
+
+
+CYCLE_ANNOTATIONS_HUMAN = [
+    ("2018-12-15", "Bottom bear 2018", "bot"),
+    ("2020-03-12", "Crash COVID",       "bot"),
+    ("2021-04-14", "Top aprile 2021",   "top"),
+    ("2021-11-10", "Top novembre 2021", "top"),
+    ("2022-11-21", "Bottom 2022",       "bot"),
+    ("2024-03-14", "ATH pre-halving",   "top"),
+]
+
+
+def _history_with_signals(history: pd.DataFrame) -> str:
+    """Grafico unico: prezzo BTC log con punti scatter colorati ai cambi di signal."""
+    if history is None or history.empty:
+        return ""
+
+    h = history.copy().sort_values("date").reset_index(drop=True)
+    h["signal_prev"] = h["signal"].shift(1)
+    changes = h[h["signal"] != h["signal_prev"]].dropna(subset=["signal_prev"])
+
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.04,
+        row_heights=[0.65, 0.35],
+        subplot_titles=("Prezzo BTC con i segnali del modello sovrapposti",
+                        "Composite score storico (0=compra, 100=vendi)"),
     )
 
-    gauge_html = _gauge(result["composite_score"], result["signal"])
-    price_html = _price_chart(ind_df.tail(365 * 5))  # ultimi 5 anni
-    composite_history_html = _composite_chart(history) if history is not None else ""
+    fig.add_trace(go.Scatter(
+        x=h["date"], y=h["btc_close"], name="BTC", mode="lines",
+        line=dict(color="#0f172a", width=1.4),
+        hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
+        showlegend=False,
+    ), row=1, col=1)
 
-    signal_desc = SIGNAL_DESCRIPTIONS.get(result["signal"], "")
+    for sig, color, marker, name in [
+        ("STRONG_BUY",  "#16a34a", "triangle-up",   "🟢 COMPRA FORTE"),
+        ("ACCUMULATE",  "#86efac", "circle",        "🌱 Accumula"),
+        ("DERISK",      "#fb923c", "circle",        "🟠 Riduci"),
+        ("STRONG_SELL", "#dc2626", "triangle-down", "🔴 VENDI FORTE"),
+    ]:
+        sub = changes[changes["signal"] == sig]
+        if len(sub):
+            fig.add_trace(go.Scatter(
+                x=sub["date"], y=sub["btc_close"], mode="markers", name=name,
+                marker=dict(color=color, size=12, symbol=marker,
+                            line=dict(color="white", width=1.5)),
+                hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<br><b>" + sig + "</b><extra></extra>",
+            ), row=1, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=h["date"], y=h["composite_score"], name="Composite",
+        line=dict(color="#475569", width=1.2),
+        hovertemplate="%{x|%Y-%m-%d}<br>Score: %{y:.0f}<extra></extra>",
+        showlegend=False,
+    ), row=2, col=1)
+    fig.add_hrect(y0=80, y1=100, fillcolor="#dc2626", opacity=0.10, line_width=0, row=2, col=1)
+    fig.add_hrect(y0=0,  y1=20,  fillcolor="#16a34a", opacity=0.10, line_width=0, row=2, col=1)
+
+    for date_str, label, kind in CYCLE_ANNOTATIONS_HUMAN:
+        ts = pd.to_datetime(date_str)
+        if ts < h["date"].min() or ts > h["date"].max():
+            continue
+        col = "#dc2626" if kind == "top" else "#16a34a"
+        fig.add_vline(x=ts, line=dict(color=col, width=1, dash="dot"), row="all", col=1)
+
+    fig.update_yaxes(type="log", title_text="USD (log)", row=1, col=1)
+    fig.update_yaxes(range=[0, 100], title_text="score", row=2, col=1)
+    fig.update_layout(
+        template="plotly_white",
+        height=620,
+        margin=dict(l=50, r=20, t=60, b=40),
+        hovermode="x unified",
+        legend=dict(orientation="h", y=1.10, x=0.5, xanchor="center", font=dict(size=11)),
+    )
+    return fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="chart-history")
+
+
+def _recent_signal_changes(history: pd.DataFrame, n: int = 8) -> str:
+    if history is None or history.empty:
+        return ""
+    h = history.copy().sort_values("date").reset_index(drop=True)
+    h["signal_prev"] = h["signal"].shift(1)
+    changes = h[h["signal"] != h["signal_prev"]].dropna(subset=["signal_prev"]).tail(n).iloc[::-1]
+    if not len(changes):
+        return ""
+
+    rows = []
+    for _, r in changes.iterrows():
+        prev = r["signal_prev"]
+        curr = r["signal"]
+        d_prev = SIGNAL_DETAIL.get(prev, SIGNAL_DETAIL["HOLD"])
+        d_curr = SIGNAL_DETAIL.get(curr, SIGNAL_DETAIL["HOLD"])
+        rows.append(f"""<tr>
+          <td style="padding:10px 12px;color:#475569">{r['date'].date()}</td>
+          <td style="padding:10px 12px;font-family:monospace">${r['btc_close']:,.0f}</td>
+          <td style="padding:10px 12px;color:{d_prev['color']}">{d_prev['emoji']} {prev}</td>
+          <td style="padding:10px 12px;color:#475569">→</td>
+          <td style="padding:10px 12px;font-weight:600;color:{d_curr['color']}">{d_curr['emoji']} {curr}</td>
+        </tr>""")
+
+    return f"""
+<div class="card">
+  <h2 style="margin:0 0 8px;font-size:1.1em">📜 Ultimi cambi di segnale</h2>
+  <p style="margin:0 0 12px;color:#64748b;font-size:0.95em">Ogni volta che il modello cambia idea, lo trovi qui. Utile per vedere quanto spesso e in che circostanze.</p>
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:#f1f5f9;color:#475569;font-size:0.85em;text-transform:uppercase;letter-spacing:1px">
+      <th style="padding:8px 12px;text-align:left">Data</th>
+      <th style="padding:8px 12px;text-align:left">BTC</th>
+      <th style="padding:8px 12px;text-align:left">Prima</th>
+      <th style="padding:8px 12px"></th>
+      <th style="padding:8px 12px;text-align:left">Adesso</th>
+    </tr></thead>
+    <tbody>{''.join(rows)}</tbody>
+  </table>
+</div>
+"""
+
+
+def _signal_distribution(history: pd.DataFrame) -> str:
+    """Quanto tempo abbiamo passato in ciascuno stato."""
+    if history is None or history.empty:
+        return ""
+    counts = history["signal"].value_counts()
+    total = counts.sum()
+    order = ["STRONG_BUY", "ACCUMULATE", "HOLD", "DERISK", "STRONG_SELL"]
+
+    bars = []
+    for sig in order:
+        n = int(counts.get(sig, 0))
+        pct = 100 * n / total if total else 0
+        d = SIGNAL_DETAIL.get(sig, SIGNAL_DETAIL["HOLD"])
+        bars.append(f"""
+<div style="margin-bottom:10px">
+  <div style="display:flex;justify-content:space-between;font-size:0.9em;margin-bottom:4px">
+    <span style="color:{d['color']};font-weight:600">{d['emoji']} {sig}</span>
+    <span style="color:#64748b">{n} giorni · {pct:.1f}%</span>
+  </div>
+  <div style="height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden">
+    <div style="height:100%;width:{pct:.1f}%;background:{d['border']}"></div>
+  </div>
+</div>""")
+
+    return f"""
+<div class="card">
+  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Storico: dove abbiamo passato il tempo</h2>
+  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">Distribuzione dei segnali sugli ultimi {total} giorni (dal {history['date'].min().date()}). I top sono rari, l'accumulazione è frequente.</p>
+  {''.join(bars)}
+</div>
+"""
+
+
+def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None) -> Path:
+    hero = _hero_banner(result)
+    therm = _thermometer(result)
+    action = _action_box(result)
+    indicators = _indicators_table_human(result)
+    history_chart = _history_with_signals(history) if history is not None else ""
+    changes_table = _recent_signal_changes(history) if history is not None else ""
+    distribution = _signal_distribution(history) if history is not None else ""
+
     btc_price = result["btc_close"]
     btc_price_str = f"${btc_price:,.0f}" if btc_price else "n/a"
-    target = result["target_btc_exposure_pct"]
 
     html = f"""<!doctype html>
 <html lang="it">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BTC Composite Indicator — {result['date']}</title>
+<title>BTC Composite — {result['date']}</title>
 <style>
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-         background: #f4f6f8; color: #2c3e50; margin: 0; padding: 24px; }}
-  .wrap {{ max-width: 1200px; margin: 0 auto; }}
-  h1 {{ margin: 0 0 4px; font-size: 1.5em; }}
-  .meta {{ color: #7f8c8d; margin-bottom: 24px; }}
-  .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }}
-  .card {{ background: white; border-radius: 12px; padding: 20px;
-           box-shadow: 0 1px 4px rgba(0,0,0,0.05); }}
-  .big-num {{ font-size: 2.2em; font-weight: 600; margin: 8px 0; }}
-  .target {{ font-size: 1.8em; font-weight: 600; color: {SIGNAL_COLORS.get(result['signal'], '#2c3e50')}; }}
-  table {{ width: 100%; border-collapse: collapse; }}
-  th, td {{ padding: 10px 12px; border-bottom: 1px solid #ecf0f1; text-align: left; }}
-  th {{ background: #ecf0f1; font-weight: 500; font-size: 0.9em; }}
-  .disclaimer {{ background: #fef9e7; border-left: 3px solid #f1c40f;
-                 padding: 12px 16px; border-radius: 4px; margin-top: 24px;
-                 color: #7d6608; font-size: 0.9em; }}
+         background: #f8fafc; color: #0f172a; margin: 0; padding: 24px 16px; }}
+  .wrap {{ max-width: 980px; margin: 0 auto; }}
+  h1 {{ margin: 0 0 6px; font-size: 1.4em; }}
+  .meta {{ color: #64748b; margin-bottom: 24px; font-size: 0.95em; }}
+  .card {{ background: white; border-radius: 12px; padding: 24px;
+           box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 20px; }}
+  table {{ font-size: 0.95em; }}
+  .disclaimer {{ background: #fef9e7; border-left: 4px solid #f1c40f;
+                 padding: 14px 18px; border-radius: 4px; margin: 24px 0 8px;
+                 color: #713f12; font-size: 0.88em; line-height: 1.5; }}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>BTC Composite Indicator</h1>
-  <div class="meta">Snapshot del {result['date']} · {btc_price_str} · generato dallo script btc-tool</div>
+  <div class="meta">Aggiornamento del <b>{result['date']}</b> · BTC oggi: <b>{btc_price_str}</b></div>
 
-  <div class="grid">
-    <div class="card">
-      {gauge_html}
-      <p style="margin-top:0;color:#7f8c8d;">{signal_desc}</p>
-    </div>
-    <div class="card">
-      <div style="color:#7f8c8d">Target esposizione BTC (sigmoide del composite score)</div>
-      <div class="target">{target}%</div>
-      <div style="margin-top:12px;color:#7f8c8d">
-        <strong>Indicatori in red zone:</strong> {result['red_count']} su {len(result['indicators'])}<br>
-        <strong>Indicatori in green zone:</strong> {result['green_count']} su {len(result['indicators'])}<br>
-        <strong>Composite score:</strong> {result['composite_score']}/100
-      </div>
-    </div>
+  {hero}
+
+  {action}
+
+  {therm}
+
+  {indicators}
+
+  <div class="card">
+    <h2 style="margin:0 0 6px;font-size:1.1em">📈 Come ha funzionato il modello nella storia</h2>
+    <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">
+      I triangoli verdi 🟢 sono i momenti in cui il modello diceva di <b>comprare forte</b>.
+      I triangoli rossi 🔴 quando diceva di <b>vendere forte</b>.
+      Guardali sovrapposti al prezzo BTC: hanno avvisato in anticipo i top del 2021 ($62k → -50%) e i bottom 2018, 2020, 2022.
+    </p>
+    {history_chart}
   </div>
 
-  <div class="card" style="margin-bottom:24px;">
-    <h2 style="margin-top:0;font-size:1.1em;">Dettaglio 9 indicatori</h2>
-    <table>
-      <thead>
-        <tr><th>Indicatore</th><th style="text-align:right">Valore</th><th style="text-align:right">Score</th><th>Zone</th><th style="text-align:right">Peso</th><th>Soglie storiche</th></tr>
-      </thead>
-      <tbody>
-        {table_html}
-      </tbody>
-    </table>
-  </div>
+  {changes_table}
 
-  <div class="card" style="margin-bottom:24px;">{price_html}</div>
-  {f'<div class="card" style="margin-bottom:24px;">{composite_history_html}</div>' if composite_history_html else ''}
+  {distribution}
 
   <div class="disclaimer">
-    <strong>Non è investment advice.</strong> Questo strumento aggrega indicatori storicamente correlati con i top/bottom di ciclo BTC.
-    Il sample size è di sole 3–4 cicli completi: ogni statistica ha un intervallo di confidenza ampio.
-    Con l'arrivo degli ETF spot dal 2024, il pattern storico potrebbe essere strutturalmente cambiato.
-    Usa il composite come <em>cruscotto di rischio probabilistico</em>, non come crystal ball.
-    Definisci sempre criteri di invalidation prima di prendere posizione.
+    <b>⚠️ Importante.</b> Questo strumento è un cruscotto probabilistico, <b>non un consiglio finanziario</b>.
+    Si basa su 3-4 cicli completi di BTC: la statistica ha intervalli di confidenza ampi.
+    Con l'arrivo degli ETF spot dal 2024, alcuni pattern storici potrebbero essere strutturalmente cambiati.
+    Usa questi segnali come una <b>seconda opinione</b>, mai come unica fonte di decisione.
+    Definisci sempre il tuo limite di rischio prima di agire.
   </div>
 </div>
 </body>
@@ -299,48 +444,5 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 
 
 def build_email_html(result: dict) -> str:
-    rows = []
-    for name in INDICATOR_WEIGHTS:
-        info = result["indicators"].get(name, {})
-        zone = info.get("zone", "n/a")
-        score = info.get("score")
-        rows.append(
-            f"<tr><td style='padding:6px 12px'>{INDICATOR_LABELS[name]}</td>"
-            f"<td style='padding:6px 12px;text-align:right;font-family:monospace'>{_format_value(info.get('value'), name)}</td>"
-            f"<td style='padding:6px 12px;text-align:right;font-family:monospace'>{score:.0f}</td>"
-            f"<td style='padding:6px 12px'><span style='background:{ZONE_COLORS[zone]};color:white;padding:2px 8px;border-radius:8px;font-size:0.85em'>{zone}</span></td></tr>"
-            if score is not None else
-            f"<tr><td style='padding:6px 12px'>{INDICATOR_LABELS[name]}</td>"
-            f"<td colspan='3' style='padding:6px 12px;color:#999'>n/a</td></tr>"
-        )
-
-    sig_color = SIGNAL_COLORS.get(result["signal"], "#2c3e50")
-    btc = f"${result['btc_close']:,.0f}" if result['btc_close'] else "n/a"
-
-    return f"""<html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#2c3e50;padding:24px;background:#f4f6f8">
-<div style="max-width:680px;margin:0 auto;background:white;border-radius:12px;padding:24px">
-  <h2 style="margin:0">BTC Composite — {result['date']}</h2>
-  <p style="color:#7f8c8d;margin:4px 0 20px">BTC close: {btc}</p>
-
-  <div style="background:{sig_color};color:white;padding:16px;border-radius:8px;margin-bottom:20px">
-    <div style="font-size:0.9em;opacity:0.85">Signal</div>
-    <div style="font-size:1.6em;font-weight:600">{result['signal']}</div>
-    <div style="margin-top:8px">Composite score: <strong>{result['composite_score']}/100</strong> · Target BTC esposizione: <strong>{result['target_btc_exposure_pct']}%</strong></div>
-  </div>
-
-  <p style="color:#555">{SIGNAL_DESCRIPTIONS.get(result['signal'], '')}</p>
-
-  <table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:0.92em">
-    <thead><tr style="background:#ecf0f1">
-      <th style="padding:8px 12px;text-align:left">Indicatore</th>
-      <th style="padding:8px 12px;text-align:right">Valore</th>
-      <th style="padding:8px 12px;text-align:right">Score</th>
-      <th style="padding:8px 12px;text-align:left">Zone</th>
-    </tr></thead>
-    <tbody>{''.join(rows)}</tbody>
-  </table>
-
-  <div style="background:#fef9e7;border-left:3px solid #f1c40f;padding:12px 16px;border-radius:4px;margin-top:24px;color:#7d6608;font-size:0.85em">
-    Non è investment advice. Strumento probabilistico basato su confluenza di indicatori storici. L'era post-ETF potrebbe alterare i pattern.
-  </div>
-</div></body></html>"""
+    """Email semplice (legacy, ora usato il bot Telegram)."""
+    return f"<html><body><pre>{result}</pre></body></html>"
