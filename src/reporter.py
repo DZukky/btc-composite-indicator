@@ -100,9 +100,12 @@ def _hero_banner(result: dict) -> str:
       <div style="font-size:0.95em;color:#475569;margin-top:10px">{detail['rationale']}</div>
     </div>
     <div style="text-align:right;min-width:200px">
-      <div style="font-size:0.85em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px">Esposizione consigliata</div>
+      <div style="font-size:0.85em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px">Allocazione BTC suggerita</div>
       <div style="font-size:3.4em;font-weight:800;color:{detail['color']};line-height:1">{target}%</div>
-      <div style="font-size:0.85em;color:#475569;margin-top:8px">del tuo capitale investito in BTC</div>
+      <div style="font-size:0.8em;color:#475569;margin-top:8px;line-height:1.4">
+        della <b>quota cripto/BTC</b> che hai già<br>deciso di destinare a Bitcoin<br>
+        <span style="font-size:0.9em;color:#94a3b8">(non del patrimonio totale)</span>
+      </div>
       <div style="margin-top:16px;padding:10px 14px;background:white;border-radius:8px;display:inline-block">
         <div style="font-size:0.8em;color:#64748b">BTC oggi</div>
         <div style="font-size:1.3em;font-weight:600;color:#0f172a">{btc}</div>
@@ -177,35 +180,37 @@ def _action_box(result: dict) -> str:
     detail = SIGNAL_DETAIL.get(result["signal"], SIGNAL_DETAIL["HOLD"])
     target = result["target_btc_exposure_pct"]
 
+    base = "Tieni il <b>{}%</b> della <b>quota che hai destinato a BTC</b> investita in Bitcoin (il resto in stable/cash)."
+
     if result["signal"] == "STRONG_BUY":
         steps = [
-            f"<b>Allocazione target</b>: porta il <b>{target}%</b> del tuo capitale di investimento in BTC.",
-            "<b>Modalità d'ingresso</b>: se sei sotto target, entra in 2-3 tranche nei prossimi 7-14 giorni (DCA).",
-            "<b>Cosa monitorare</b>: il modello rimarrà in zona BUY finché 4+ indicatori sono favorevoli. Ti avviso quando cambia.",
+            base.format(target),
+            "<b>Modalità d'ingresso</b>: se sei sotto target, entra a scaglioni (DCA) in 2-3 tranche nei prossimi 7-14 giorni.",
+            "<b>Cosa monitorare</b>: il modello resterà in zona BUY finché 4+ indicatori sono favorevoli. Ti avviso quando cambia.",
         ]
     elif result["signal"] == "ACCUMULATE":
         steps = [
-            f"<b>Allocazione target</b>: alza l'esposizione BTC verso il <b>{target}%</b>.",
+            base.format(target),
             "<b>Modalità d'ingresso</b>: piccoli buy settimanali, niente fretta.",
-            "<b>Cosa monitorare</b>: se il composite scende sotto 20, passiamo a STRONG_BUY → accelera.",
+            "<b>Cosa monitorare</b>: se il composite scende sotto 20 → passa a STRONG_BUY → accelera gli acquisti.",
         ]
     elif result["signal"] == "HOLD":
         steps = [
-            f"<b>Allocazione target</b>: mantieni l'esposizione attuale (modello indica {target}%).",
+            base.format(target),
             "<b>Trend follow</b>: niente azioni nuove. Aspetta il prossimo segnale.",
-            "<b>Cosa monitorare</b>: variazioni significative del composite (±15 punti in pochi giorni = attenzione).",
+            "<b>Cosa monitorare</b>: variazioni significative del composite (±15 punti in pochi giorni) = riapri la dashboard.",
         ]
     elif result["signal"] == "DERISK":
         steps = [
-            f"<b>Allocazione target</b>: riduci l'esposizione BTC verso il <b>{target}%</b>.",
-            "<b>Modalità d'uscita</b>: vendi in 2-3 tranche, evita panic-selling tutto subito.",
-            "<b>Cosa monitorare</b>: se il composite passa sopra 80, è STRONG_SELL → completa la riduzione.",
+            f"<b>Riduci verso il {target}%</b> di esposizione BTC sulla tua quota cripto. Il resto in stable/cash.",
+            "<b>Modalità d'uscita</b>: vendi in 2-3 tranche, evita panic-selling tutto in un colpo.",
+            "<b>Cosa monitorare</b>: se il composite passa sopra 80 → STRONG_SELL → completa la riduzione.",
         ]
     else:  # STRONG_SELL
         steps = [
-            f"<b>Allocazione target</b>: riduci immediatamente al <b>{target}%</b>.",
+            f"<b>Riduci immediatamente al {target}%</b> sulla tua quota cripto destinata a BTC. Sposta il resto in stable/cash.",
             "<b>Modalità d'uscita</b>: il modello vede confluenza di top di ciclo. Storicamente 50-85% drawdown nei 12 mesi successivi.",
-            "<b>Cosa monitorare</b>: i drawdown reali servono per i prossimi BUY. Pazienza.",
+            "<b>Cosa monitorare</b>: i drawdown reali serviranno per i prossimi BUY. Pazienza, non FOMO.",
         ]
 
     steps_html = "".join(f"<li style='margin-bottom:8px'>{s}</li>" for s in steps)
@@ -368,10 +373,27 @@ def _signal_distribution(history: pd.DataFrame) -> str:
 """
 
 
+def _explain_target(result: dict) -> str:
+    target = result["target_btc_exposure_pct"]
+    return f"""
+<div class="card" style="background:#eff6ff;border-left:4px solid #3b82f6">
+  <h2 style="margin:0 0 8px;font-size:1em;color:#1e40af">ℹ️ Come si legge questo {target}%</h2>
+  <p style="margin:0;color:#1e3a8a;font-size:0.92em;line-height:1.55">
+    Il modello assume che tu abbia <b>già deciso quanto del tuo patrimonio destinare a BTC</b>
+    (es. il 5%, il 20%, il 60% — è una scelta personale che dipende dalla tua tolleranza al rischio).<br><br>
+    Questo <b>{target}%</b> ti dice <b>come allocare quella quota</b>: oggi tienine il {target}% in Bitcoin
+    e il restante {round(100 - target, 1)}% in stablecoin/cash, pronto a entrare se il segnale si rafforza.
+    <b>Non è una raccomandazione su quanto del tuo patrimonio investire in BTC.</b>
+  </p>
+</div>
+"""
+
+
 def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None) -> Path:
     hero = _hero_banner(result)
     therm = _thermometer(result)
     action = _action_box(result)
+    explain = _explain_target(result)
     indicators = _indicators_table_human(result)
     history_chart = _history_with_signals(history) if history is not None else ""
     changes_table = _recent_signal_changes(history) if history is not None else ""
@@ -408,6 +430,8 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   {hero}
 
   {action}
+
+  {explain}
 
   {therm}
 

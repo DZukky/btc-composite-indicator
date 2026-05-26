@@ -57,7 +57,8 @@ def format_message(result: dict, dashboard_url: str | None = None) -> str:
         f"BTC oggi: <b>{btc}</b>\n\n"
         f"{emoji} <b>{label}</b>\n"
         f"<i>{action}</i>\n\n"
-        f"💰 <b>Esposizione consigliata: {result['target_btc_exposure_pct']}%</b>\n"
+        f"💰 <b>Allocazione BTC suggerita: {result['target_btc_exposure_pct']}%</b>\n"
+        f"<i>(della quota cripto che hai già destinato a BTC, non del patrimonio totale)</i>\n\n"
         f"📊 Composite score: {result['composite_score']}/100\n"
         f"🟢 Favorevoli: {result['green_count']}/9 · 🔴 Negativi: {result['red_count']}/9"
     )
