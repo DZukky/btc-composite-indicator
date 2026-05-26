@@ -1,6 +1,6 @@
 # BTC Composite Indicator
 
-**Dashboard live**: https://dzukky.github.io/btc-composite-indicator/
+**Dashboard live**: https://btc-composite-dzukky.pages.dev
 
 Strumento giornaliero di segnali reversal per Bitcoin: combina 9 indicatori storicamente correlati con top/bottom di ciclo in un singolo composite score 0–100, con position sizing operativo e alert Telegram giornalieri.
 

@@ -6,3 +6,6 @@ venv/
 .DS_Store
 data/cache/
 *.log
+node_modules/
+package.json
+package-lock.json
