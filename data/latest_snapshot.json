@@ -1,6 +1,6 @@
 {
   "date": "2026-05-27",
-  "btc_close": 75661.16,
+  "btc_close": 74788.77,
   "composite_score": 16.14,
   "red_count": 0,
   "green_count": 5,
@@ -8,19 +8,19 @@
   "target_btc_exposure_pct": 96.7,
   "indicators": {
     "pi_cycle": {
-      "value": 0.38530621903063356,
+      "value": 0.38527467222612954,
       "score": 0,
       "zone": "green",
       "weight": 0.15
     },
     "mayer": {
-      "value": 0.944066768798543,
+      "value": 0.9332322615814962,
       "score": 0,
       "zone": "green",
       "weight": 0.12
     },
     "two_year_ma": {
-      "value": 0.8648193504911709,
+      "value": 0.8548594681638515,
       "score": 0,
       "zone": "green",
       "weight": 0.1
@@ -56,7 +56,7 @@
       "weight": 0.08
     },
     "bmsb": {
-      "value": 0.9767785019028242,
+      "value": 0.9655160285641257,
       "score": 0,
       "zone": "green",
       "weight": 0.07
