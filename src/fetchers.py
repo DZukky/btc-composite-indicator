@@ -20,9 +20,10 @@ import requests
 
 from .config import CACHE_DIR
 
-BINANCE_BASE = "https://api.binance.com/api/v3/klines"
-BINANCE_SYMBOL = "BTCUSDT"
-BINANCE_START_MS = 1502928000000  # 2017-08-17, primo giorno trading BTCUSDT
+CRYPTOCOMPARE_BASE = "https://min-api.cryptocompare.com/data/v2/histoday"
+CRYPTOCOMPARE_FSYM = "BTC"
+CRYPTOCOMPARE_TSYM = "USD"
+CRYPTOCOMPARE_LIMIT = 2000  # max per call
 
 BITCOIN_DATA_BASE = "https://bitcoin-data.com/api/v1"
 BITCOIN_DATA_METRICS = {
@@ -55,55 +56,71 @@ def _http_get_json(url: str, params: Optional[dict] = None, retries: int = 5, ti
 
 
 def fetch_btc_price_daily(force: bool = False) -> pd.DataFrame:
-    """Scarica klines daily BTCUSDT da Binance, paginato 1000 candle alla volta.
+    """Scarica daily BTC/USD da CryptoCompare (free, no geo-block, 2000 candele/call).
 
-    Cache: data/cache/binance_btc_daily.csv. Ad ogni run scarica solo le
-    candele dopo l'ultima salvata.
+    Endpoint: GET /data/v2/histoday?fsym=BTC&tsym=USD&limit=2000&toTs=<unix>
+    Response: {"Data": {"Data": [{"time","open","high","low","close","volumefrom",...}]}}
+    Pagina all'indietro tramite toTs finché new_min < cached_max (o data minima fissa).
     """
-    cache = CACHE_DIR / "binance_btc_daily.csv"
+    cache = CACHE_DIR / "cryptocompare_btc_daily.csv"
+    cache_legacy = CACHE_DIR / "binance_btc_daily.csv"
+    cache_legacy_kraken = CACHE_DIR / "kraken_btc_daily.csv"
+
+    df = pd.DataFrame()
     if cache.exists() and not force:
         df = pd.read_csv(cache, parse_dates=["date"])
-        last_ts = int(df["date"].max().timestamp() * 1000) + 86_400_000
-    else:
-        df = pd.DataFrame()
-        last_ts = BINANCE_START_MS
+    elif cache_legacy_kraken.exists() and not force:
+        df = pd.read_csv(cache_legacy_kraken, parse_dates=["date"])
+    elif cache_legacy.exists() and not force:
+        df = pd.read_csv(cache_legacy, parse_dates=["date"])
 
-    now_ms = int(time.time() * 1000)
-    new_rows = []
-    while last_ts < now_ms:
-        chunk = _http_get_json(
-            BINANCE_BASE,
+    have_until = int(df["date"].max().timestamp()) if not df.empty else 0
+    target_min_ts = int(datetime(2014, 1, 1, tzinfo=timezone.utc).timestamp())
+    to_ts = int(time.time())
+    all_new = []
+
+    while True:
+        resp = _http_get_json(
+            CRYPTOCOMPARE_BASE,
             params={
-                "symbol": BINANCE_SYMBOL,
-                "interval": "1d",
-                "startTime": last_ts,
-                "limit": 1000,
+                "fsym": CRYPTOCOMPARE_FSYM,
+                "tsym": CRYPTOCOMPARE_TSYM,
+                "limit": CRYPTOCOMPARE_LIMIT,
+                "toTs": to_ts,
             },
         )
-        if not chunk:
+        if not resp or resp.get("Response") == "Error":
+            print(f"[cryptocompare] errore: {resp.get('Message') if resp else 'no response'}")
             break
-        for row in chunk:
-            new_rows.append({
-                "date": datetime.fromtimestamp(row[0] / 1000, tz=timezone.utc).date(),
-                "open": float(row[1]),
-                "high": float(row[2]),
-                "low":  float(row[3]),
-                "close": float(row[4]),
-                "volume": float(row[5]),
+        data = (resp.get("Data") or {}).get("Data") or []
+        data = [d for d in data if d.get("close") and d["close"] > 0]
+        if not data:
+            break
+        for d in data:
+            all_new.append({
+                "date":   datetime.fromtimestamp(d["time"], tz=timezone.utc).date(),
+                "open":   float(d["open"]),
+                "high":   float(d["high"]),
+                "low":    float(d["low"]),
+                "close":  float(d["close"]),
+                "volume": float(d.get("volumefrom", 0)),
             })
-        last_ts = chunk[-1][0] + 86_400_000
-        if len(chunk) < 1000:
+        oldest = data[0]["time"]
+        if oldest <= target_min_ts or oldest <= have_until:
             break
-        time.sleep(0.15)
+        to_ts = oldest - 86_400
+        time.sleep(0.4)
 
-    if new_rows:
-        new_df = pd.DataFrame(new_rows)
+    if all_new:
+        new_df = pd.DataFrame(all_new)
         new_df["date"] = pd.to_datetime(new_df["date"])
         df = pd.concat([df, new_df], ignore_index=True).drop_duplicates("date").sort_values("date")
+        df = df[df["date"] >= pd.Timestamp("2014-01-01")]
         df.to_csv(cache, index=False)
 
-    df["date"] = pd.to_datetime(df["date"])
-    return df.reset_index(drop=True)
+    if not df.empty:
+        df["date"] = pd.to_datetime(df["date"])
+    return df.reset_index(drop=True) if not df.empty else df
 
 
 def fetch_bitcoin_data_metric(name: str, force: bool = False) -> pd.DataFrame:
@@ -161,7 +178,7 @@ def fetch_hash_rate(force: bool = False) -> pd.DataFrame:
 
 def fetch_all(force: bool = False) -> dict:
     """Pipeline complessiva: scarica tutto e restituisce un dict di DataFrame."""
-    print("[fetch] prezzo BTC daily da Binance...")
+    print("[fetch] prezzo BTC daily da CryptoCompare...")
     price = fetch_btc_price_daily(force=force)
     print(f"  {len(price)} candle, da {price['date'].min().date()} a {price['date'].max().date()}")
 
