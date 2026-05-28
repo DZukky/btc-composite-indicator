@@ -153,6 +153,54 @@ def fetch_news(top_n: int = 5) -> dict:
     }
 
 
+FNG_URL = "https://api.alternative.me/fng/?limit=8"
+FNG_CLASS_IT = {
+    "Extreme Fear":  "Paura estrema",
+    "Fear":          "Paura",
+    "Neutral":       "Neutrale",
+    "Greed":         "Avidità",
+    "Extreme Greed": "Avidità estrema",
+}
+
+
+def fetch_fear_greed() -> dict:
+    """Crypto Fear & Greed Index (alternative.me, free, no auth).
+
+    SENTIMENT ESTERNO al modello: 0 = paura estrema, 100 = avidità estrema.
+    Lettura contrarian: paura = storicamente occasioni, avidità = cautela.
+    """
+    try:
+        r = requests.get(FNG_URL, headers=HEADERS, timeout=15)
+        r.raise_for_status()
+        data = r.json().get("data", [])
+        if not data:
+            return {"available": False}
+        cur = data[0]
+        value = int(cur["value"])
+        klass = cur.get("value_classification", "")
+        hist = [int(d["value"]) for d in data]  # [oggi, ieri, ...]
+        # trend rispetto a ~7 giorni fa
+        prev = hist[-1] if len(hist) > 1 else value
+        delta = value - prev
+        if delta >= 5:
+            trend = f"in aumento (+{delta} in una settimana)"
+        elif delta <= -5:
+            trend = f"in calo ({delta} in una settimana)"
+        else:
+            trend = "stabile nell'ultima settimana"
+        return {
+            "available": True,
+            "value": value,
+            "classification": klass,
+            "classification_it": FNG_CLASS_IT.get(klass, klass),
+            "history": list(reversed(hist)),  # cronologico crescente
+            "trend": trend,
+        }
+    except Exception as exc:  # noqa: BLE001
+        print(f"[fng] non disponibile: {exc}")
+        return {"available": False}
+
+
 def safe(text: str) -> str:
     """HTML-escape per evitare injection da titoli/link dei feed."""
     return html.escape(text or "", quote=True)

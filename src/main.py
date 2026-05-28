@@ -62,7 +62,7 @@ def main():
     snap = snapshot(ind_df, divergences=divergences)
     result = composite_score(snap)
 
-    # News + sentiment (server-side). Non deve mai far fallire la pipeline.
+    # News + Fear&Greed (server-side, contesto esterno). Non far mai fallire la pipeline.
     try:
         from .news import fetch_news
         news = fetch_news()
@@ -70,6 +70,14 @@ def main():
     except Exception as exc:  # noqa: BLE001
         print(f"[news] errore (ignorato): {exc}")
         news = None
+    try:
+        from .news import fetch_fear_greed
+        fng = fetch_fear_greed()
+        if fng.get("available"):
+            print(f"[fng] Fear&Greed {fng['value']} ({fng['classification']})")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[fng] errore (ignorato): {exc}")
+        fng = None
 
     print(f"\n  Date              : {result['date']}")
     print(f"  BTC close         : ${result['btc_close']:,.0f}")
@@ -98,7 +106,7 @@ def main():
     save_history(history)
     print(f"[history] salvato: {HISTORY_FILE}")
 
-    out_html = build_dashboard(result, ind_df, history=history, divergences=divergences, news=news)
+    out_html = build_dashboard(result, ind_df, history=history, divergences=divergences, news=news, fng=fng)
     print(f"[dashboard] generata: {out_html}")
 
     json_out = DATA_DIR / "latest_snapshot.json"

@@ -364,6 +364,43 @@ NEWS_SENTIMENT = {
 NEWS_LABEL_COLOR = {"Bullish": "#15803d", "Bearish": "#991b1b", "Neutrale": "#475569"}
 
 
+def _fear_greed_widget(fng: dict | None) -> str:
+    """Widget Crypto Fear & Greed Index. Sentiment esterno al modello."""
+    if not fng or not fng.get("available"):
+        return ""
+    v = fng["value"]
+    klass_it = fng["classification_it"]
+    # colore del valore secondo scala standard F&G (rosso paura → verde avidità)
+    if v < 25:
+        vcolor = "#dc2626"
+    elif v < 45:
+        vcolor = "#f97316"
+    elif v < 55:
+        vcolor = "#64748b"
+    elif v < 75:
+        vcolor = "#22c55e"
+    else:
+        vcolor = "#16a34a"
+    marker = max(0, min(100, v))
+    return f"""
+<div class="card">
+  <h2 style="margin:0 0 4px;font-size:1.1em">😱 Fear &amp; Greed Index</h2>
+  <p style="margin:0 0 12px;color:#64748b;font-size:0.9em">Emotività del mercato crypto oggi: <b style="color:{vcolor}">{v}/100 — {klass_it}</b> · {fng['trend']}</p>
+  <div style="position:relative;height:40px;border-radius:8px;overflow:hidden;background:linear-gradient(to right,#dc2626 0%,#f97316 25%,#cbd5e1 50%,#22c55e 75%,#16a34a 100%)">
+    <div style="position:absolute;left:{marker}%;top:-3px;bottom:-3px;width:4px;background:#0f172a;transform:translateX(-50%);box-shadow:0 0 0 2px white"></div>
+    <div style="position:absolute;left:{marker}%;top:-26px;transform:translateX(-50%);background:#0f172a;color:white;padding:2px 8px;border-radius:6px;font-size:0.82em;font-weight:700;white-space:nowrap">{v}</div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.75em;color:#94a3b8">
+    <span>0 · Paura estrema</span><span>50 · Neutrale</span><span>Avidità estrema · 100</span>
+  </div>
+  <p style="margin:14px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45">
+    ℹ️ Lettura <b>contrarian</b>: la paura estrema ha storicamente coinciso con buone occasioni d'acquisto,
+    l'avidità estrema con i top. È <b>contesto esterno</b>, non entra nel punteggio composite.
+  </p>
+</div>
+"""
+
+
 def _news_widget(news: dict | None) -> str:
     """Widget '📰 Macro Sentiment & Breaking News'. Graceful se feed non disponibili."""
     from .news import safe
@@ -631,7 +668,8 @@ def _section_header(num: str, title: str) -> str:
 
 
 def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None,
-                    divergences: pd.DataFrame | None = None, news: dict | None = None) -> Path:
+                    divergences: pd.DataFrame | None = None, news: dict | None = None,
+                    fng: dict | None = None) -> Path:
     hero = _hero_banner(result)
     regime_div = _regime_and_divergence_banner(result)
     dca = _dca_and_bot_row(result)
@@ -639,6 +677,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     action = _action_box(result)
     explain = _explain_target(result)
     indicators = _indicators_table_human(result)
+    fng_widget = _fear_greed_widget(fng)
     news_widget = _news_widget(news)
     history_chart = _history_with_signals(history, divergences=divergences) if history is not None else ""
     changes_table = _recent_signal_changes(history) if history is not None else ""
@@ -694,7 +733,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   <div class="tagline">Quando accumulare e quando alleggerire Bitcoin, in un colpo d'occhio</div>
   <div class="meta">Aggiornamento del <b>{result['date']}</b> · BTC oggi: <b>{btc_price_str}</b></div>
 
-  {_section_header("①", "Cosa fare oggi")}
+  {_section_header("①", "Il quadro di oggi")}
 
   {hero}
 
@@ -707,15 +746,23 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     {explain}
   </div>
 
-  {_section_header("②", "Perché il modello lo dice")}
+  {_section_header("②", "Perché il modello lo suggerisce")}
 
   {regime_div}
 
   {indicators}
 
+  {_section_header("③", "Contesto &amp; sentiment di mercato")}
+
+  <p style="margin:-4px 0 16px;color:#94a3b8;font-size:0.88em">
+    Informazioni esterne al modello: utili come contorno, <b>non entrano nel punteggio composite</b>.
+  </p>
+
+  {fng_widget}
+
   {news_widget}
 
-  {_section_header("③", "Ha funzionato storicamente?")}
+  {_section_header("④", "Ha funzionato storicamente?")}
 
   <div class="card">
     <h2 style="margin:0 0 8px;font-size:1.1em">📈 Come ha funzionato il modello nella storia</h2>
