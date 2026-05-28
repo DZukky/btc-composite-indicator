@@ -61,6 +61,17 @@ SIGNAL_DETAIL = {
 }
 
 
+# Etichette brevi dei segnali in italiano, allineate al termometro
+# (Compra forte / Accumula / Mantieni / Riduci / Vendi forte)
+SIGNAL_SHORT_IT = {
+    "STRONG_BUY":  "Compra forte",
+    "ACCUMULATE":  "Accumula",
+    "HOLD":        "Mantieni",
+    "DERISK":      "Riduci",
+    "STRONG_SELL": "Vendi forte",
+}
+
+
 ZONE_TO_SIMPLE = {
     "red":     ("🔴", "Molto negativo", "#dc2626"),
     "orange":  ("🟠", "Negativo",       "#f97316"),
@@ -164,10 +175,13 @@ def _indicators_table_human(result: dict) -> str:
     return f"""
 <div class="card">
   <h2 style="margin:0 0 8px;font-size:1.1em">🔍 Cosa dicono i 9 indicatori</h2>
-  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">
+  <p style="margin:0 0 4px;color:#64748b;font-size:0.95em">
     <b style="color:#16a34a">{result.get('fav_count', 0)} favorevoli</b> all'acquisto ·
     <b style="color:#dc2626">{result.get('neg_count', 0)} negativi</b> ·
     {result.get('neu_count', 0)} neutri
+  </p>
+  <p style="margin:0 0 16px;color:#94a3b8;font-size:0.85em">
+    Questi 9 indicatori, fusi insieme con il loro peso, producono il <b>Segnale di oggi</b> mostrato in cima alla pagina.
   </p>
   <table style="width:100%;border-collapse:separate;border-spacing:0 4px">
     <tbody>{''.join(rows)}</tbody>
@@ -445,12 +459,14 @@ def _recent_signal_changes(history: pd.DataFrame, n: int = 8) -> str:
         curr = r["signal"]
         d_prev = SIGNAL_DETAIL.get(prev, SIGNAL_DETAIL["HOLD"])
         d_curr = SIGNAL_DETAIL.get(curr, SIGNAL_DETAIL["HOLD"])
+        prev_it = SIGNAL_SHORT_IT.get(prev, prev)
+        curr_it = SIGNAL_SHORT_IT.get(curr, curr)
         rows.append(f"""<tr>
           <td style="padding:10px 12px;color:#475569">{r['date'].date()}</td>
           <td style="padding:10px 12px;font-family:monospace">${r['btc_close']:,.0f}</td>
-          <td style="padding:10px 12px;color:{d_prev['color']}">{d_prev['emoji']} {prev}</td>
+          <td style="padding:10px 12px;color:{d_prev['color']}">{d_prev['emoji']} {prev_it}</td>
           <td style="padding:10px 12px;color:#475569">→</td>
-          <td style="padding:10px 12px;font-weight:600;color:{d_curr['color']}">{d_curr['emoji']} {curr}</td>
+          <td style="padding:10px 12px;font-weight:600;color:{d_curr['color']}">{d_curr['emoji']} {curr_it}</td>
         </tr>""")
 
     return f"""
@@ -484,10 +500,11 @@ def _signal_distribution(history: pd.DataFrame) -> str:
         n = int(counts.get(sig, 0))
         pct = 100 * n / total if total else 0
         d = SIGNAL_DETAIL.get(sig, SIGNAL_DETAIL["HOLD"])
+        sig_it = SIGNAL_SHORT_IT.get(sig, sig)
         bars.append(f"""
 <div style="margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;font-size:0.9em;margin-bottom:4px">
-    <span style="color:{d['color']};font-weight:600">{d['emoji']} {sig}</span>
+    <span style="color:{d['color']};font-weight:600">{d['emoji']} {sig_it}</span>
     <span style="color:#64748b">{n} giorni · {pct:.1f}%</span>
   </div>
   <div style="height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden">
