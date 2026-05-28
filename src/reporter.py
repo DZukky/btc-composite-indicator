@@ -356,6 +356,79 @@ def _dca_and_bot_row(result: dict) -> str:
 </div>"""
 
 
+NEWS_SENTIMENT = {
+    "bull":    ("🟢", "Bullish",  "#16a34a"),
+    "bear":    ("🔴", "Bearish",  "#dc2626"),
+    "neutral": ("⚪", "Neutrale", "#94a3b8"),
+}
+NEWS_LABEL_COLOR = {"Bullish": "#15803d", "Bearish": "#991b1b", "Neutrale": "#475569"}
+
+
+def _news_widget(news: dict | None) -> str:
+    """Widget '📰 Macro Sentiment & Breaking News'. Graceful se feed non disponibili."""
+    from .news import safe
+
+    if not news or not news.get("available"):
+        return """
+<div class="card">
+  <h2 style="margin:0 0 6px;font-size:1.1em">📰 Macro Sentiment &amp; Breaking News</h2>
+  <p style="margin:0;color:#94a3b8;font-size:0.92em">Notizie non disponibili al momento (le fonti verranno ricontattate al prossimo aggiornamento).</p>
+</div>
+"""
+
+    bull = news["bull_pct"]
+    neu = news["neutral_pct"]
+    bear = news["bear_pct"]
+    label = news["label"]
+    label_color = NEWS_LABEL_COLOR.get(label, "#475569")
+
+    # barra sentiment a 3 segmenti
+    bar = f"""
+<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0 4px">
+  <div style="width:{bull}%;background:#16a34a"></div>
+  <div style="width:{neu}%;background:#cbd5e1"></div>
+  <div style="width:{bear}%;background:#dc2626"></div>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:0.8em;color:#64748b;margin-bottom:16px">
+  <span style="color:#16a34a;font-weight:600">🟢 {bull}% Bullish</span>
+  <span>⚪ {neu}% Neutrale</span>
+  <span style="color:#dc2626;font-weight:600">🔴 {bear}% Bearish</span>
+</div>"""
+
+    rows = []
+    for it in news["items"]:
+        emoji, _, color = NEWS_SENTIMENT.get(it["sentiment"], NEWS_SENTIMENT["neutral"])
+        title = safe(it["title"])
+        link = safe(it["link"])
+        src = safe(it["source"])
+        date_str = it["published"].strftime("%d/%m") if it.get("published") else ""
+        rows.append(f"""
+<a href="{link}" target="_blank" rel="noopener noreferrer"
+   style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9;text-decoration:none;color:inherit">
+  <span style="font-size:0.95em;flex-shrink:0">{emoji}</span>
+  <span style="flex:1;min-width:0">
+    <span style="font-size:0.93em;color:#1e293b;font-weight:500">{title}</span>
+    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">{src} · {date_str} ↗</span>
+  </span>
+</a>""")
+
+    return f"""
+<div class="card">
+  <h2 style="margin:0 0 4px;font-size:1.1em">📰 Macro Sentiment &amp; Breaking News</h2>
+  <p style="margin:0 0 6px;color:#64748b;font-size:0.9em">
+    Clima delle notizie crypto di oggi: <b style="color:{label_color}">{label}</b>
+    <span style="color:#94a3b8">(su {news['total']} testate analizzate)</span>
+  </p>
+  {bar}
+  <div>{''.join(rows)}</div>
+  <p style="margin:14px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45">
+    ℹ️ Le notizie sono <b>contesto</b>, non un segnale operativo: il sentiment dei titoli è rumoroso e
+    <b>non entra nel punteggio composite</b>. Quando una notizia è pubblica, il movimento di prezzo è spesso già avvenuto.
+  </p>
+</div>
+"""
+
+
 def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | None = None) -> str:
     """Grafico unico: prezzo BTC log con punti scatter colorati ai cambi di signal."""
     if history is None or history.empty:
@@ -525,7 +598,7 @@ def _explain_target(result: dict) -> str:
 
 
 def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None,
-                    divergences: pd.DataFrame | None = None) -> Path:
+                    divergences: pd.DataFrame | None = None, news: dict | None = None) -> Path:
     hero = _hero_banner(result)
     regime_div = _regime_and_divergence_banner(result)
     dca = _dca_and_bot_row(result)
@@ -533,6 +606,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     action = _action_box(result)
     explain = _explain_target(result)
     indicators = _indicators_table_human(result)
+    news_widget = _news_widget(news)
     history_chart = _history_with_signals(history, divergences=divergences) if history is not None else ""
     changes_table = _recent_signal_changes(history) if history is not None else ""
     distribution = _signal_distribution(history) if history is not None else ""
@@ -601,6 +675,8 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   </div>
 
   {indicators}
+
+  {news_widget}
 
   <div class="card">
     <h2 style="margin:0 0 6px;font-size:1.1em">📈 Come ha funzionato il modello nella storia</h2>

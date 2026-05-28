@@ -62,6 +62,15 @@ def main():
     snap = snapshot(ind_df, divergences=divergences)
     result = composite_score(snap)
 
+    # News + sentiment (server-side). Non deve mai far fallire la pipeline.
+    try:
+        from .news import fetch_news
+        news = fetch_news()
+        print(f"[news] sentiment {news['label']} · {len(news['items'])} notizie")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[news] errore (ignorato): {exc}")
+        news = None
+
     print(f"\n  Date              : {result['date']}")
     print(f"  BTC close         : ${result['btc_close']:,.0f}")
     print(f"  Composite score   : {result['composite_score']}/100")
@@ -89,7 +98,7 @@ def main():
     save_history(history)
     print(f"[history] salvato: {HISTORY_FILE}")
 
-    out_html = build_dashboard(result, ind_df, history=history, divergences=divergences)
+    out_html = build_dashboard(result, ind_df, history=history, divergences=divergences, news=news)
     print(f"[dashboard] generata: {out_html}")
 
     json_out = DATA_DIR / "latest_snapshot.json"
