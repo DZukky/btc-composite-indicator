@@ -562,9 +562,12 @@ def _recent_signal_changes(history: pd.DataFrame, n: int = 8, horizons=(30, 90, 
     last_date = h["date"].max()
     min_h = min(horizons)
 
-    # mostra i cambi con almeno il più breve orizzonte maturo (≥30gg)
+    # cambi con il più breve orizzonte già maturo (≥30gg) e degli ultimi ~6 mesi
     all_changes = h[h["signal"] != h["signal_prev"]].dropna(subset=["signal_prev"])
-    all_changes = all_changes[all_changes["date"] <= last_date - pd.Timedelta(days=min_h)]
+    all_changes = all_changes[
+        (all_changes["date"] <= last_date - pd.Timedelta(days=min_h)) &
+        (all_changes["date"] >= last_date - pd.Timedelta(days=180))
+    ]
     changes = all_changes.tail(n).iloc[::-1]
     if not len(changes):
         return ""
@@ -598,11 +601,16 @@ def _recent_signal_changes(history: pd.DataFrame, n: int = 8, horizons=(30, 90, 
     return f"""
 <div class="card">
   <h2 style="margin:0 0 6px;font-size:1.1em">📜 Ultimi cambi di segnale</h2>
+  <p style="margin:0 0 10px;color:#64748b;font-size:0.92em">
+    Ogni riga è un momento in cui il <b>segnale operativo è cambiato</b> rispetto al precedente
+    (es. da <i>Mantieni</i> ad <i>Accumula</i>): accade quando il punteggio composite supera una soglia.
+    Può succedere a distanza di settimane o mesi. Mostriamo i cambi degli <b>ultimi ~6 mesi</b>.
+  </p>
   <p style="margin:0 0 12px;color:#64748b;font-size:0.92em">
-    Ogni volta che il modello cambia idea, lo trovi qui. Le colonne <b>Esito</b> mostrano se la mossa
-    si è rivelata corretta a <b>30, 90 e 180 giorni</b> (prezzo andato nella direzione attesa).
-    Più lungo è l'orizzonte, più conta per una strategia di accumulo. Misura <i>indicativa</i>;
-    il trattino grigio = orizzonte non ancora maturo.
+    Le colonne <b>Esito</b> dicono se la mossa si è poi rivelata corretta a <b>30, 90 e 180 giorni</b>
+    (prezzo andato nella direzione attesa). Più lungo è l'orizzonte, più conta per l'accumulo.
+    Misura <i>indicativa</i>; trattino grigio = orizzonte non ancora maturo.
+    <b>Aver funzionato in passato non garantisce risultati futuri.</b>
   </p>
   <div class="tbl-scroll"><table style="width:100%;border-collapse:collapse;min-width:560px">
     <thead><tr style="background:#f1f5f9;color:#475569;font-size:0.85em;text-transform:uppercase;letter-spacing:1px">
@@ -862,7 +870,8 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 
   <div class="disclaimer">
     <b>⚠️ Importante.</b> Questo strumento è un cruscotto probabilistico, <b>non un consiglio finanziario</b>.
-    Si basa su appena 3 cicli completi di BTC (top 2017, 2021, 2024-25): la statistica ha intervalli di confidenza ampi.
+    Si basa su 3 cicli completi di BTC (top 2017, 2021, 2024-25): la statistica ha intervalli di confidenza ampi.
+    <b>Il fatto che il modello abbia funzionato in passato non garantisce che funzioni in futuro.</b>
     Con l'arrivo degli ETF spot dal 2024, alcuni pattern storici potrebbero essere strutturalmente cambiati.
     Usa questi segnali come una <b>seconda opinione</b>, mai come unica fonte di decisione.
     Definisci sempre il tuo limite di rischio prima di agire.
