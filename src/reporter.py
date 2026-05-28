@@ -539,70 +539,77 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
                        default_width="100%")
 
 
-def _signal_outcome(curr: str, price_at: float, price_after: float | None):
-    """Esito di un cambio segnale a 90gg. Ritorna (html_cell)."""
+def _outcome_cell(curr: str, price_at: float, price_after: float | None):
+    """Cella esito per un orizzonte. ✅/❌ + % oppure trattino se non maturo."""
     if price_after is None:
-        return '<span style="color:#94a3b8">⏳ in corso</span>'
+        return '<span style="color:#cbd5e1">–</span>'
     if curr == "HOLD":
         return '<span style="color:#94a3b8">—</span>'
     chg = (price_after - price_at) / price_at * 100
     is_buy = curr in ("STRONG_BUY", "ACCUMULATE")
     correct = (chg > 0) if is_buy else (chg < 0)
-    if correct:
-        return f'<span style="color:#16a34a;font-weight:600">✅ {chg:+.0f}%</span>'
-    return f'<span style="color:#dc2626;font-weight:600">❌ {chg:+.0f}%</span>'
+    color = "#16a34a" if correct else "#dc2626"
+    icon = "✅" if correct else "❌"
+    return f'<span style="color:{color};font-weight:600;white-space:nowrap">{icon} {chg:+.0f}%</span>'
 
 
-def _recent_signal_changes(history: pd.DataFrame, n: int = 8, horizon_days: int = 90) -> str:
+def _recent_signal_changes(history: pd.DataFrame, n: int = 8, horizons=(30, 90, 180)) -> str:
     if history is None or history.empty:
         return ""
     h = history.copy().sort_values("date").reset_index(drop=True)
     h["signal_prev"] = h["signal"].shift(1)
     price_by_date = h.set_index("date")["btc_close"]
     last_date = h["date"].max()
+    min_h = min(horizons)
 
+    # mostra i cambi con almeno il più breve orizzonte maturo (≥30gg)
     all_changes = h[h["signal"] != h["signal_prev"]].dropna(subset=["signal_prev"])
+    all_changes = all_changes[all_changes["date"] <= last_date - pd.Timedelta(days=min_h)]
     changes = all_changes.tail(n).iloc[::-1]
     if not len(changes):
         return ""
 
+    def price_at_horizon(date, days):
+        td = date + pd.Timedelta(days=days)
+        if td > last_date:
+            return None
+        idx = price_by_date.index.get_indexer([td], method="nearest")[0]
+        return float(price_by_date.iloc[idx])
+
     rows = []
     for _, r in changes.iterrows():
-        prev, curr = r["signal_prev"], r["signal"]
-        d_prev = SIGNAL_DETAIL.get(prev, SIGNAL_DETAIL["HOLD"])
+        curr = r["signal"]
         d_curr = SIGNAL_DETAIL.get(curr, SIGNAL_DETAIL["HOLD"])
-        prev_it = SIGNAL_SHORT_IT.get(prev, prev)
         curr_it = SIGNAL_SHORT_IT.get(curr, curr)
-
-        # prezzo a +horizon giorni (None se nel futuro)
-        target_date = r["date"] + pd.Timedelta(days=horizon_days)
-        price_after = None
-        if target_date <= last_date:
-            idx = price_by_date.index.get_indexer([target_date], method="nearest")[0]
-            price_after = float(price_by_date.iloc[idx])
-        outcome = _signal_outcome(curr, float(r["btc_close"]), price_after)
-
+        cells = "".join(
+            f'<td style="padding:10px 12px">{_outcome_cell(curr, float(r["btc_close"]), price_at_horizon(r["date"], hz))}</td>'
+            for hz in horizons
+        )
         rows.append(f"""<tr>
           <td style="padding:10px 12px;color:#475569">{r['date'].date()}</td>
           <td style="padding:10px 12px;font-family:monospace">${r['btc_close']:,.0f}</td>
           <td style="padding:10px 12px;font-weight:600;color:{d_curr['color']}">{d_curr['emoji']} {curr_it}</td>
-          <td style="padding:10px 12px">{outcome}</td>
+          {cells}
         </tr>""")
 
+    esito_headers = "".join(
+        f'<th style="padding:8px 12px;text-align:left">Esito {hz}gg</th>' for hz in horizons
+    )
     return f"""
 <div class="card">
   <h2 style="margin:0 0 6px;font-size:1.1em">📜 Ultimi cambi di segnale</h2>
   <p style="margin:0 0 12px;color:#64748b;font-size:0.92em">
-    Ogni volta che il modello cambia idea, lo trovi qui. La colonna <b>Esito a 90gg</b> mostra
-    se la mossa si è rivelata corretta (prezzo andato nella direzione attesa entro 3 mesi).
-    È una misura <i>indicativa</i>: dipende dall'orizzonte scelto.
+    Ogni volta che il modello cambia idea, lo trovi qui. Le colonne <b>Esito</b> mostrano se la mossa
+    si è rivelata corretta a <b>30, 90 e 180 giorni</b> (prezzo andato nella direzione attesa).
+    Più lungo è l'orizzonte, più conta per una strategia di accumulo. Misura <i>indicativa</i>;
+    il trattino grigio = orizzonte non ancora maturo.
   </p>
-  <div class="tbl-scroll"><table style="width:100%;border-collapse:collapse;min-width:420px">
+  <div class="tbl-scroll"><table style="width:100%;border-collapse:collapse;min-width:560px">
     <thead><tr style="background:#f1f5f9;color:#475569;font-size:0.85em;text-transform:uppercase;letter-spacing:1px">
       <th style="padding:8px 12px;text-align:left">Data</th>
       <th style="padding:8px 12px;text-align:left">BTC</th>
       <th style="padding:8px 12px;text-align:left">Nuovo segnale</th>
-      <th style="padding:8px 12px;text-align:left">Esito a 90gg</th>
+      {esito_headers}
     </tr></thead>
     <tbody>{''.join(rows)}</tbody>
   </table></div>
@@ -797,11 +804,13 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 </head>
 <body>
 <div class="wrap">
-  <h1 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+  <h1 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     BTC Composite Indicator
     <span style="font-size:0.5em;font-weight:700;letter-spacing:1px;background:#e0e7ff;color:#4338ca;padding:3px 9px;border-radius:6px;vertical-align:middle">BETA</span>
+    <span style="font-size:0.5em;font-weight:700;letter-spacing:1px;background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:6px;vertical-align:middle">ACCUMULO · DCA</span>
   </h1>
   <div class="tagline">Quando accumulare e quando alleggerire Bitcoin, in un colpo d'occhio</div>
+  <div style="color:#64748b;font-size:0.85em;margin-bottom:6px">Strumento di accumulo a lungo termine — non trading speculativo</div>
   <div class="meta">Aggiornamento del <b>{result['date']}</b> · BTC oggi: <b>{btc_price_str}</b></div>
 
   {_section_header("①", "Il quadro di oggi")}
