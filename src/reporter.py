@@ -448,26 +448,25 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
         showlegend=False,
     ))
 
-    for sig, color, marker, name in [
-        ("STRONG_BUY",  "#16a34a", "triangle-up",   "🟢 Compra forte"),
-        ("ACCUMULATE",  "#86efac", "circle",        "🌱 Accumula"),
-        ("DERISK",      "#fb923c", "circle",        "🟠 Riduci"),
-        ("STRONG_SELL", "#dc2626", "triangle-down", "🔴 Vendi forte"),
+    for sig, color, marker in [
+        ("STRONG_BUY",  "#16a34a", "triangle-up"),
+        ("ACCUMULATE",  "#86efac", "circle"),
+        ("DERISK",      "#fb923c", "circle"),
+        ("STRONG_SELL", "#dc2626", "triangle-down"),
     ]:
         sub = changes[changes["signal"] == sig]
         if len(sub):
             fig.add_trace(go.Scatter(
-                x=sub["date"], y=sub["btc_close"], mode="markers", name=name,
+                x=sub["date"], y=sub["btc_close"], mode="markers", showlegend=False,
                 marker=dict(color=color, size=12, symbol=marker,
                             line=dict(color="white", width=1.5)),
-                hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<br><b>" + sig + "</b><extra></extra>",
+                hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<br><b>" + SIGNAL_SHORT_IT.get(sig, sig) + "</b><extra></extra>",
             ))
 
     # Markers divergenze RSI sul prezzo (piccole X colorate)
     if divergences is not None and not divergences.empty:
         h_idx = h.set_index("date")["btc_close"]
-        for dtype, color, name in [("bull", "#16a34a", "✕ Div. rialzista"),
-                                    ("bear", "#dc2626", "✕ Div. ribassista")]:
+        for dtype, color in [("bull", "#16a34a"), ("bear", "#dc2626")]:
             sub = divergences[divergences["type"] == dtype]
             xs, ys = [], []
             for _, dv in sub.iterrows():
@@ -478,7 +477,7 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
                     ys.append(h_idx.loc[nearest])
             if xs:
                 fig.add_trace(go.Scatter(
-                    x=xs, y=ys, mode="markers", name=name,
+                    x=xs, y=ys, mode="markers", showlegend=False,
                     marker=dict(color=color, size=9, symbol="x-thin", line=dict(color=color, width=2)),
                     hovertemplate="%{x|%Y-%m-%d}<br>Divergenza " + dtype + "<extra></extra>",
                 ))
@@ -493,11 +492,10 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
     fig.update_yaxes(type="log", title_text="USD (log)")
     fig.update_layout(
         template="plotly_white",
-        height=460,
-        margin=dict(l=46, r=16, t=10, b=80),
+        height=420,
+        margin=dict(l=46, r=16, t=10, b=30),
         hovermode="x unified",
-        legend=dict(orientation="h", y=-0.16, x=0.5, xanchor="center",
-                    yanchor="top", font=dict(size=11)),
+        showlegend=False,
     )
     return fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="chart-history",
                        config={"responsive": True, "displayModeBar": False},
@@ -597,6 +595,33 @@ def _explain_target(result: dict) -> str:
 """
 
 
+def _chart_legend() -> str:
+    """Legenda HTML custom, simboli coerenti al 100% con i marker del grafico,
+    divisa in due categorie."""
+    def it(symbol, color, label):
+        return (f'<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap">'
+                f'<span style="color:{color};font-size:1.05em;line-height:1">{symbol}</span>'
+                f'<span style="color:#475569;font-size:0.85em">{label}</span></span>')
+
+    tendenza = " &nbsp;·&nbsp; ".join([
+        it("▲", "#16a34a", "Compra forte"),
+        it("●", "#4ade80", "Accumula"),
+        it("●", "#fb923c", "Riduci"),
+        it("▼", "#dc2626", "Vendi forte"),
+    ])
+    momento = " &nbsp;·&nbsp; ".join([
+        it("✕", "#16a34a", "Div. rialzista"),
+        it("✕", "#dc2626", "Div. ribassista"),
+    ])
+    return f"""
+<div style="margin-top:8px;border-top:1px solid #f1f5f9;padding-top:12px">
+  <div style="font-size:0.72em;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:6px">Segnali di tendenza</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:12px">{tendenza}</div>
+  <div style="font-size:0.72em;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:6px">Indicatori di momento</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px 14px">{momento}</div>
+</div>"""
+
+
 def _section_header(num: str, title: str) -> str:
     return f"""
 <div style="margin:36px 0 16px">
@@ -693,14 +718,15 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   {_section_header("③", "Ha funzionato storicamente?")}
 
   <div class="card">
-    <h2 style="margin:0 0 6px;font-size:1.1em">📈 Come ha funzionato il modello nella storia</h2>
-    <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">
-      I triangoli verdi 🟢 sono i momenti in cui il modello diceva di <b>comprare forte</b>,
-      i rossi 🔴 quando diceva di <b>vendere forte</b>. Le <b>✕</b> sono le divergenze RSI
-      (verde = possibile inversione su, rossa = giù). Guardali sovrapposti al prezzo BTC:
-      hanno avvisato in anticipo i top del 2021 ($62k → -50%) e i bottom 2018, 2020, 2022.
-    </p>
+    <h2 style="margin:0 0 8px;font-size:1.1em">📈 Come ha funzionato il modello nella storia</h2>
+    <p style="margin:0 0 6px;color:#475569;font-size:0.92em">Verifica dell'efficacia storica dei segnali, sovrapposti al prezzo di Bitcoin:</p>
+    <ul style="margin:0 0 14px;padding-left:18px;color:#475569;font-size:0.92em;line-height:1.6">
+      <li><b>Minimi di ciclo</b> — ha individuato i bottom 2018, 2020 e 2022 (zone di accumulo)</li>
+      <li><b>Allerta sui massimi</b> — segnalò il top di aprile 2021 (~$62k) prima del calo del −50%</li>
+      <li><b>Divergenze RSI (✕)</b> — possibili inversioni di tendenza (verde = al rialzo, rossa = al ribasso)</li>
+    </ul>
     {history_chart}
+    {_chart_legend()}
   </div>
 
   {distribution}
