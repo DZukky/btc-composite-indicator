@@ -597,6 +597,14 @@ def _explain_target(result: dict) -> str:
 """
 
 
+def _section_header(num: str, title: str) -> str:
+    return f"""
+<div style="margin:36px 0 16px">
+  <div style="font-size:1.2em;font-weight:700;color:#0f172a">{num}&nbsp;&nbsp;{title}</div>
+  <div style="height:2px;background:linear-gradient(to right,#94a3b8,#e2e8f0 60%,transparent);margin-top:8px"></div>
+</div>"""
+
+
 def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None,
                     divergences: pd.DataFrame | None = None, news: dict | None = None) -> Path:
     hero = _hero_banner(result)
@@ -661,11 +669,11 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   <div class="tagline">Quando accumulare e quando alleggerire Bitcoin, in un colpo d'occhio</div>
   <div class="meta">Aggiornamento del <b>{result['date']}</b> · BTC oggi: <b>{btc_price_str}</b></div>
 
+  {_section_header("①", "Cosa fare oggi")}
+
   {hero}
 
   {therm}
-
-  {regime_div}
 
   {dca}
 
@@ -674,9 +682,15 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     {explain}
   </div>
 
+  {_section_header("②", "Perché il modello lo dice")}
+
+  {regime_div}
+
   {indicators}
 
   {news_widget}
+
+  {_section_header("③", "Ha funzionato storicamente?")}
 
   <div class="card">
     <h2 style="margin:0 0 6px;font-size:1.1em">📈 Come ha funzionato il modello nella storia</h2>
@@ -689,9 +703,9 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     {history_chart}
   </div>
 
-  {changes_table}
-
   {distribution}
+
+  {changes_table}
 
   <div class="disclaimer">
     <b>⚠️ Importante.</b> Questo strumento è un cruscotto probabilistico, <b>non un consiglio finanziario</b>.
