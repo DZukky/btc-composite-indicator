@@ -110,9 +110,9 @@ def _hero_banner(result: dict) -> str:
       <div style="font-size:1.15em;color:{detail['color']};margin-top:12px;font-weight:500">{detail['action']}</div>
       <div style="font-size:0.95em;color:#475569;margin-top:10px">{detail['rationale']}</div>
     </div>
-    <div style="text-align:right;min-width:200px">
+    <div class="hero-right" style="text-align:right;min-width:200px">
       <div style="font-size:0.85em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px">Allocazione BTC suggerita</div>
-      <div style="font-size:3.4em;font-weight:800;color:{detail['color']};line-height:1">{target}%</div>
+      <div class="big-target" style="font-size:3.4em;font-weight:800;color:{detail['color']};line-height:1">{target}%</div>
       <div style="font-size:0.8em;color:#475569;margin-top:8px;line-height:1.4">
         della <b>quota cripto/BTC</b> che hai già<br>deciso di destinare a Bitcoin<br>
         <span style="font-size:0.9em;color:#94a3b8">(non del patrimonio totale)</span>
@@ -183,9 +183,9 @@ def _indicators_table_human(result: dict) -> str:
   <p style="margin:0 0 16px;color:#94a3b8;font-size:0.85em">
     Questi 9 indicatori, fusi insieme con il loro peso, producono il <b>Segnale di oggi</b> mostrato in cima alla pagina.
   </p>
-  <table style="width:100%;border-collapse:separate;border-spacing:0 4px">
+  <div class="tbl-scroll"><table style="width:100%;border-collapse:separate;border-spacing:0 4px;min-width:340px">
     <tbody>{''.join(rows)}</tbody>
-  </table>
+  </table></div>
 </div>
 """
 
@@ -441,7 +441,9 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
         hovermode="x unified",
         legend=dict(orientation="h", y=1.10, x=0.5, xanchor="center", font=dict(size=11)),
     )
-    return fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="chart-history")
+    return fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="chart-history",
+                       config={"responsive": True, "displayModeBar": False},
+                       default_width="100%")
 
 
 def _recent_signal_changes(history: pd.DataFrame, n: int = 8) -> str:
@@ -473,7 +475,7 @@ def _recent_signal_changes(history: pd.DataFrame, n: int = 8) -> str:
 <div class="card">
   <h2 style="margin:0 0 8px;font-size:1.1em">📜 Ultimi cambi di segnale</h2>
   <p style="margin:0 0 12px;color:#64748b;font-size:0.95em">Ogni volta che il modello cambia idea, lo trovi qui. Utile per vedere quanto spesso e in che circostanze.</p>
-  <table style="width:100%;border-collapse:collapse">
+  <div class="tbl-scroll"><table style="width:100%;border-collapse:collapse;min-width:460px">
     <thead><tr style="background:#f1f5f9;color:#475569;font-size:0.85em;text-transform:uppercase;letter-spacing:1px">
       <th style="padding:8px 12px;text-align:left">Data</th>
       <th style="padding:8px 12px;text-align:left">BTC</th>
@@ -482,7 +484,7 @@ def _recent_signal_changes(history: pd.DataFrame, n: int = 8) -> str:
       <th style="padding:8px 12px;text-align:left">Adesso</th>
     </tr></thead>
     <tbody>{''.join(rows)}</tbody>
-  </table>
+  </table></div>
 </div>
 """
 
@@ -560,18 +562,35 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BTC Composite — {result['date']}</title>
 <style>
+  * {{ box-sizing: border-box; }}
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-         background: #f8fafc; color: #0f172a; margin: 0; padding: 24px 16px; }}
+         background: #f8fafc; color: #0f172a; margin: 0; padding: 24px 16px;
+         overflow-x: hidden; }}
   .wrap {{ max-width: 980px; margin: 0 auto; }}
   h1 {{ margin: 0 0 4px; font-size: 1.5em; letter-spacing: -0.01em; }}
   .tagline {{ color: #334155; font-size: 1.02em; margin-bottom: 6px; }}
   .meta {{ color: #94a3b8; margin-bottom: 24px; font-size: 0.9em; }}
   .card {{ background: white; border-radius: 12px; padding: 24px;
            box-shadow: 0 1px 4px rgba(15,23,42,0.08); margin-bottom: 20px; }}
-  table {{ font-size: 0.95em; }}
+  table {{ font-size: 0.95em; width: 100%; }}
+  .tbl-scroll {{ overflow-x: auto; -webkit-overflow-scrolling: touch; }}
+  .js-plotly-plot, .plotly, .plot-container {{ width: 100% !important; max-width: 100%; }}
   .disclaimer {{ background: #fef9e7; border-left: 4px solid #f1c40f;
                  padding: 14px 18px; border-radius: 4px; margin: 24px 0 8px;
                  color: #713f12; font-size: 0.88em; line-height: 1.5; }}
+  /* ---- Mobile ---- */
+  @media (max-width: 640px) {{
+    body {{ padding: 14px 10px; }}
+    h1 {{ font-size: 1.25em; }}
+    .tagline {{ font-size: 0.95em; }}
+    .card {{ padding: 16px; margin-bottom: 14px; border-radius: 10px; }}
+    .hero {{ padding: 20px !important; }}
+    .hero .big-target {{ font-size: 2.4em !important; }}
+    /* il blocco 'esposizione' dell'hero torna a sinistra e a tutta larghezza */
+    .hero-right {{ text-align: left !important; min-width: 100% !important; margin-top: 12px; }}
+    table {{ font-size: 0.85em; }}
+    th, td {{ padding: 8px 8px !important; }}
+  }}
 </style>
 </head>
 <body>
