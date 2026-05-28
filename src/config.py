@@ -22,16 +22,19 @@ INDICATOR_WEIGHTS = {
 }
 assert abs(sum(INDICATOR_WEIGHTS.values()) - 1.0) < 1e-6
 
+# Soglie calibrate sui valori REALI ai bottom/top di ciclo osservati 2018-2022:
+#   Mayer bottom 0.51-0.71 · 2YMA bottom 0.41-0.78 · BMSB bottom 0.54-0.75
+#   (essere "sotto la media mobile" NON è un bottom di ciclo; lo è esserci MOLTO sotto)
 INDICATOR_THRESHOLDS = {
     "pi_cycle":     {"top_red": 0.95, "top_yellow": 0.85, "bot_green": None, "bot_yellow": None},
-    "mayer":        {"top_red": 2.4,  "top_yellow": 1.8,  "bot_green": 1.0,  "bot_yellow": 1.2},
-    "two_year_ma":  {"top_red": 4.0,  "top_yellow": 2.5,  "bot_green": 1.0,  "bot_yellow": 1.3},
+    "mayer":        {"top_red": 2.4,  "top_yellow": 1.8,  "bot_green": 0.65, "bot_yellow": 0.85},
+    "two_year_ma":  {"top_red": 4.0,  "top_yellow": 2.5,  "bot_green": 0.55, "bot_yellow": 0.80},
     "mvrv_z":       {"top_red": 6.0,  "top_yellow": 3.5,  "bot_green": 0.0,  "bot_yellow": 1.0},
     "rsi_weekly":   {"top_red": 85,   "top_yellow": 75,   "bot_green": 35,   "bot_yellow": 45},
     "nupl":         {"top_red": 0.70, "top_yellow": 0.55, "bot_green": 0.0,  "bot_yellow": 0.15},
     "puell":        {"top_red": 3.5,  "top_yellow": 2.2,  "bot_green": 0.5,  "bot_yellow": 0.8},
     "hash_ribbons": {"top_red": None, "top_yellow": None, "bot_green": "buy_cross", "bot_yellow": None},
-    "bmsb":         {"top_red": 1.30, "top_yellow": 1.15, "bot_green": 1.00, "bot_yellow": 1.05},
+    "bmsb":         {"top_red": 1.30, "top_yellow": 1.15, "bot_green": 0.70, "bot_yellow": 0.90},
 }
 
 COMPOSITE_TRIGGERS = {

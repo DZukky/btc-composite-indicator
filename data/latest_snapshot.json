@@ -1,33 +1,33 @@
 {
-  "date": "2026-05-27",
-  "btc_close": 74788.77,
-  "composite_score": 16.14,
+  "date": "2026-05-28",
+  "btc_close": 72934.4,
+  "composite_score": 31.37,
   "red_count": 0,
-  "green_count": 5,
-  "signal": "STRONG_BUY",
-  "target_btc_exposure_pct": 96.7,
+  "green_count": 1,
+  "signal": "ACCUMULATE",
+  "target_btc_exposure_pct": 86.6,
   "indicators": {
     "pi_cycle": {
-      "value": 0.38527467222612954,
-      "score": 0,
-      "zone": "green",
+      "value": 0.3858045088605013,
+      "score": 50,
+      "zone": "neutral",
       "weight": 0.15
     },
     "mayer": {
-      "value": 0.9332322615814962,
-      "score": 0,
-      "zone": "green",
+      "value": 0.9118525806388588,
+      "score": 28.255398980992567,
+      "zone": "lime",
       "weight": 0.12
     },
     "two_year_ma": {
-      "value": 0.8548594681638515,
-      "score": 0,
-      "zone": "green",
+      "value": 0.8335921417619163,
+      "score": 25.988004169468127,
+      "zone": "lime",
       "weight": 0.1
     },
     "mvrv_z": {
-      "value": 0.7886,
-      "score": 19.715,
+      "value": 0.742,
+      "score": 18.55,
       "zone": "green",
       "weight": 0.18
     },
@@ -38,27 +38,27 @@
       "weight": 0.1
     },
     "nupl": {
-      "value": 0.2927,
-      "score": 42.837500000000006,
+      "value": 0.2779,
+      "score": 40.9875,
       "zone": "neutral",
       "weight": 0.1
     },
     "puell": {
-      "value": 0.778,
-      "score": 23.166666666666664,
+      "value": 0.7722,
+      "score": 22.68333333333333,
       "zone": "lime",
       "weight": 0.1
     },
     "hash_ribbons": {
-      "value": 0.9881122479592743,
-      "score": 42.07483197284956,
+      "value": 0.9852768222554193,
+      "score": 40.18454817027958,
       "zone": "neutral",
       "weight": 0.08
     },
     "bmsb": {
-      "value": 0.9655160285641257,
-      "score": 0,
-      "zone": "green",
+      "value": 0.9415762852324936,
+      "score": 33.315257046498715,
+      "zone": "lime",
       "weight": 0.07
     }
   }

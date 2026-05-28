@@ -64,7 +64,10 @@ def score_indicator(name: str, value, hash_buy_cross: Optional[bool] = None) -> 
         points.append((t["top_red"], 100))
 
     if name == "pi_cycle":
-        points = [(0.4, 0), (0.7, 30), (0.85, 75), (0.95, 95), (1.0, 100)]
+        # Asimmetrico: il "Pi Cycle TOP" individua i TOP, non i bottom.
+        # Quando è basso significa solo "non siamo a un top" → neutro (50), non buy.
+        # Contribuisce al segnale SELL solo avvicinandosi a 1.0.
+        points = [(0.5, 50), (0.7, 55), (0.85, 75), (0.95, 95), (1.0, 100)]
 
     return _ramp(float(value), sorted(points, key=lambda p: p[0]))
 
@@ -109,9 +112,9 @@ def composite_score(snap: dict) -> dict:
         signal = "STRONG_SELL"
     elif composite <= COMPOSITE_TRIGGERS["strong_buy"]["score_max"] and green_count >= COMPOSITE_TRIGGERS["strong_buy"]["agree_min"]:
         signal = "STRONG_BUY"
-    elif composite >= 70:
+    elif composite >= 65:
         signal = "DERISK"
-    elif composite <= 30:
+    elif composite <= 35:
         signal = "ACCUMULATE"
 
     target_pct = 100.0 / (1 + math.exp((composite - 50) / 10.0))
