@@ -87,7 +87,35 @@ def classify_zone(name: str, value, hash_buy_cross: Optional[bool] = None) -> st
     return "green"
 
 
-def composite_score(snap: dict) -> dict:
+def decide_signal(composite: float, red_count: int, green_count: int,
+                  prev_signal: str | None = None) -> str:
+    """Decide il segnale con ISTERESI per ridurre lo sfarfallio vicino alle soglie.
+
+    Soglie di ENTRATA nette; per restare in una fase si applica un margine (zona morta):
+    una volta dentro, si esce solo se il composite supera la soglia di un margine M.
+    Questo evita cambi-rumore quando il composite oscilla attorno a una soglia.
+    """
+    M = 5  # margine isteresi
+    # STRONG_BUY: entra ≤20 & 4 green; resta ≤25 & ≥3 green
+    if (composite <= 20 and green_count >= 4) or \
+       (prev_signal == "STRONG_BUY" and composite <= 20 + M and green_count >= 3):
+        return "STRONG_BUY"
+    # STRONG_SELL: entra ≥80 & 4 red; resta ≥75 & ≥3 red
+    if (composite >= 80 and red_count >= 4) or \
+       (prev_signal == "STRONG_SELL" and composite >= 80 - M and red_count >= 3):
+        return "STRONG_SELL"
+    # ACCUMULATE: entra ≤35; resta ≤40
+    acc_thr = 35 + M if prev_signal == "ACCUMULATE" else 35
+    if composite <= acc_thr:
+        return "ACCUMULATE"
+    # DERISK: entra ≥65; resta ≥60
+    der_thr = 65 - M if prev_signal == "DERISK" else 65
+    if composite >= der_thr:
+        return "DERISK"
+    return "HOLD"
+
+
+def composite_score(snap: dict, prev_signal: str | None = None) -> dict:
     per_ind = {}
     weighted_sum = 0.0
     weight_used = 0.0
@@ -114,15 +142,7 @@ def composite_score(snap: dict) -> dict:
     neg_count = sum(1 for v in per_ind.values() if v["zone"] in ("red", "orange"))
     neu_count = sum(1 for v in per_ind.values() if v["zone"] == "neutral")
 
-    signal = "HOLD"
-    if composite >= COMPOSITE_TRIGGERS["strong_sell"]["score_min"] and red_count >= COMPOSITE_TRIGGERS["strong_sell"]["agree_min"]:
-        signal = "STRONG_SELL"
-    elif composite <= COMPOSITE_TRIGGERS["strong_buy"]["score_max"] and green_count >= COMPOSITE_TRIGGERS["strong_buy"]["agree_min"]:
-        signal = "STRONG_BUY"
-    elif composite >= 65:
-        signal = "DERISK"
-    elif composite <= 35:
-        signal = "ACCUMULATE"
+    signal = decide_signal(composite, red_count, green_count, prev_signal)
 
     target_pct = 100.0 / (1 + math.exp((composite - 50) / 10.0))
 
@@ -193,6 +213,7 @@ def compute_history(ind_df) -> "pd.DataFrame":
                  "hr_cross_buy", "bmsb", "close"]
 
     out = []
+    prev_signal = None  # stato per l'isteresi, si propaga giorno per giorno
     for _, r in ind_df.iterrows():
         snap = {"date": r["date"].date().isoformat()}
         non_na = 0
@@ -212,7 +233,8 @@ def compute_history(ind_df) -> "pd.DataFrame":
         if non_na < 5:
             continue
 
-        res = composite_score(snap)
+        res = composite_score(snap, prev_signal=prev_signal)
+        prev_signal = res["signal"]  # isteresi: lo stato si propaga al giorno dopo
         out.append({
             "date":                 pd.to_datetime(res["date"]),
             "btc_close":            res["btc_close"],

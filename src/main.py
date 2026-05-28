@@ -60,7 +60,29 @@ def main():
     ind_df = build_indicators(data)
     divergences = compute_rsi_divergences(data["price"])
     snap = snapshot(ind_df, divergences=divergences)
-    result = composite_score(snap)
+
+    # Storico (con isteresi sequenziale). Serve PRIMA del segnale di oggi
+    # perché l'isteresi dipende dal segnale di ieri.
+    if args.no_backfill and HISTORY_FILE.exists():
+        history = pd.read_csv(HISTORY_FILE, parse_dates=["date"])
+        prev_signal = str(history["signal"].iloc[-1]) if len(history) else None
+        result = composite_score(snap, prev_signal=prev_signal)
+        today_row = pd.DataFrame([{
+            "date": pd.to_datetime(result["date"]),
+            "btc_close": result["btc_close"],
+            "composite_score": result["composite_score"],
+            "signal": result["signal"],
+            "target_btc_exposure_pct": result["target_btc_exposure_pct"],
+            "red_count": result["red_count"],
+            "green_count": result["green_count"],
+        }])
+        history = pd.concat([history, today_row]).drop_duplicates(subset=["date"], keep="last")
+    else:
+        print("[backfill] calcolo composite storico (con isteresi) per tutta la time series...")
+        history = compute_history(ind_df)
+        prev_signal = str(history["signal"].iloc[-2]) if len(history) >= 2 else None
+        result = composite_score(snap, prev_signal=prev_signal)
+        print(f"  → {len(history)} giorni, da {history['date'].min().date()} a {history['date'].max().date()}")
 
     # News + Fear&Greed (server-side, contesto esterno). Non far mai fallire la pipeline.
     try:
@@ -85,23 +107,6 @@ def main():
     print(f"  Signal            : {result['signal']}")
     print(f"  Target BTC exp.   : {result['target_btc_exposure_pct']}%")
     print(f"  Red / Green zones : {result['red_count']} / {result['green_count']} (su 9)")
-
-    if args.no_backfill and HISTORY_FILE.exists():
-        history = pd.read_csv(HISTORY_FILE, parse_dates=["date"])
-        today_row = pd.DataFrame([{
-            "date": pd.to_datetime(result["date"]),
-            "btc_close": result["btc_close"],
-            "composite_score": result["composite_score"],
-            "signal": result["signal"],
-            "target_btc_exposure_pct": result["target_btc_exposure_pct"],
-            "red_count": result["red_count"],
-            "green_count": result["green_count"],
-        }])
-        history = pd.concat([history, today_row]).drop_duplicates(subset=["date"], keep="last")
-    else:
-        print("\n[backfill] calcolo composite storico per tutta la time series...")
-        history = compute_history(ind_df)
-        print(f"  → {len(history)} giorni di storico calcolati, da {history['date'].min().date()} a {history['date'].max().date()}")
 
     save_history(history)
     print(f"[history] salvato: {HISTORY_FILE}")
