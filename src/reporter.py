@@ -287,18 +287,19 @@ def _regime_and_divergence_banner(result: dict) -> str:
 
 
 DCA_DETAIL = {
-    "AGGRESSIVO": {"emoji": "🟢", "color": "#15803d", "bg": "#dcfce7", "border": "#16a34a",
-                   "tag": "Fase di sconto"},
-    "REGOLARE":   {"emoji": "🔵", "color": "#1e40af", "bg": "#dbeafe", "border": "#3b82f6",
+    "SOSTENUTO":  {"emoji": "🟢", "color": "#15803d", "bg": "#dcfce7", "border": "#16a34a",
+                   "tag": "Sconto favorevole"},
+    "DI ROUTINE": {"emoji": "🔵", "color": "#1e40af", "bg": "#dbeafe", "border": "#3b82f6",
                    "tag": "Accumulo standard"},
-    "PRUDENTE":   {"emoji": "🟠", "color": "#9a3412", "bg": "#ffedd5", "border": "#f97316",
-                   "tag": "Attesa / riduzione"},
+    "RIDOTTO":    {"emoji": "🟠", "color": "#9a3412", "bg": "#ffedd5", "border": "#f97316",
+                   "tag": "Fase estesa"},
 }
 
 
-def _dca_box(result: dict) -> str:
-    dca = result.get("dca") or {"level": "REGOLARE", "reason": ""}
-    d = DCA_DETAIL.get(dca["level"], DCA_DETAIL["REGOLARE"])
+def _dca_and_bot_row(result: dict) -> str:
+    """Due colonne affiancate: box Strategia DCA + box Istruzioni Bot DCA."""
+    dca = result.get("dca") or {"level": "DI ROUTINE", "reason": "", "bot_state": "ATTIVO", "bot_action": ""}
+    d = DCA_DETAIL.get(dca["level"], DCA_DETAIL["DI ROUTINE"])
     sma200d = result.get("sma_200d")
     dist = result.get("dist_200d_pct")
     ref = ""
@@ -306,17 +307,38 @@ def _dca_box(result: dict) -> str:
         dist_str = f"{dist:+.1f}%" if dist is not None else "n/a"
         ref = f"""<div style="font-size:0.8em;color:#94a3b8;margin-top:8px">
           Media a 200 giorni: ${sma200d:,.0f} · prezzo a {dist_str}</div>"""
-    return f"""
-<div class="card" style="background:{d['bg']};border-left:4px solid {d['border']}">
+
+    bot_state = dca.get("bot_state", "ATTIVO")
+    state_color = "#16a34a" if bot_state == "ATTIVO" else "#f97316"
+
+    dca_box = f"""
+<div class="card" style="background:{d['bg']};border-left:4px solid {d['border']};margin-bottom:0;flex:1;min-width:280px">
   <h2 style="margin:0 0 6px;font-size:1.1em;color:{d['color']}">💧 Strategia di accumulo (DCA)</h2>
-  <div style="font-size:1.6em;font-weight:700;color:{d['color']};margin:4px 0">
+  <div style="font-size:1.5em;font-weight:700;color:{d['color']};margin:4px 0">
     {d['emoji']} DCA {dca['level']}
-    <span style="font-size:0.5em;font-weight:600;background:{d['border']};color:white;padding:3px 10px;border-radius:10px;vertical-align:middle;margin-left:8px">{d['tag']}</span>
+    <span style="font-size:0.5em;font-weight:600;background:{d['border']};color:white;padding:3px 10px;border-radius:10px;vertical-align:middle;margin-left:6px">{d['tag']}</span>
   </div>
-  <div style="color:#475569;font-size:0.95em;line-height:1.5">{dca['reason']}</div>
+  <div style="color:#475569;font-size:0.92em;line-height:1.5">{dca['reason']}</div>
   {ref}
-</div>
-"""
+</div>"""
+
+    bot_box = f"""
+<div class="card" style="margin-bottom:0;flex:1;min-width:280px;border-left:4px solid #64748b">
+  <h2 style="margin:0 0 6px;font-size:1.1em">🤖 Istruzioni per il Bot DCA</h2>
+  <div style="font-size:0.9em;margin:4px 0">
+    Stato bot: <span style="font-weight:700;color:{state_color}">{bot_state}</span>
+  </div>
+  <div style="color:#475569;font-size:0.92em;line-height:1.5">{dca.get('bot_action','')}</div>
+  <div style="font-size:0.78em;color:#94a3b8;margin-top:8px">
+    Indicazione operativa per il tuo bot (Pionex, Crypto.com, ecc.). Da applicare manualmente — lo strumento non si collega al bot né esegue ordini.
+  </div>
+</div>"""
+
+    return f"""
+<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px">
+  {dca_box}
+  {bot_box}
+</div>"""
 
 
 def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | None = None) -> str:
@@ -499,7 +521,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
                     divergences: pd.DataFrame | None = None) -> Path:
     hero = _hero_banner(result)
     regime_div = _regime_and_divergence_banner(result)
-    dca = _dca_box(result)
+    dca = _dca_and_bot_row(result)
     therm = _thermometer(result)
     action = _action_box(result)
     explain = _explain_target(result)

@@ -68,8 +68,10 @@
   "sma_200d": 79984.8589,
   "dist_200d_pct": -8.8,
   "dca": {
-    "level": "AGGRESSIVO",
-    "reason": "BTC \u00e8 economico su pi\u00f9 metriche (composite basso): fase di sconto, accumulo accelerato. Il prezzo \u00e8 9% sotto la media a 200 giorni."
+    "level": "SOSTENUTO",
+    "reason": "Fase di accumulo favorevole su livelli storicamente solidi (composite basso). Il prezzo \u00e8 9% sotto la media a 200 giorni.",
+    "bot_state": "ATTIVO",
+    "bot_action": "Fase favorevole: puoi valutare di incrementare leggermente l'importo della singola ricorrenza (ordine di grandezza +10-20%) mantenendo la stessa frequenza. Entit\u00e0 e decisione restano tue."
   },
   "last_divergence": null,
   "last_divergence_date": null,

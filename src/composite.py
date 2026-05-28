@@ -126,14 +126,28 @@ def composite_score(snap: dict) -> dict:
         verso = "sopra" if dist200 >= 0 else "sotto"
         dist_txt = f" Il prezzo è {abs(dist200):.0f}% {verso} la media a 200 giorni."
     if composite <= 35:
-        dca = {"level": "AGGRESSIVO",
-               "reason": "BTC è economico su più metriche (composite basso): fase di sconto, accumulo accelerato." + dist_txt}
+        dca = {
+            "level": "SOSTENUTO",
+            "reason": "Fase di accumulo favorevole su livelli storicamente solidi (composite basso)." + dist_txt,
+            "bot_state": "ATTIVO",
+            "bot_action": "Fase favorevole: puoi valutare di incrementare leggermente l'importo della singola ricorrenza "
+                          "(ordine di grandezza +10-20%) mantenendo la stessa frequenza. Entità e decisione restano tue.",
+        }
     elif composite >= 65:
-        dca = {"level": "PRUDENTE",
-               "reason": "BTC è esteso/caro su più metriche (composite alto): rallenta gli acquisti o riduci." + dist_txt}
+        dca = {
+            "level": "RIDOTTO",
+            "reason": "BTC è esteso su più metriche (composite alto): conviene rallentare l'accumulo." + dist_txt,
+            "bot_state": "ATTIVO",
+            "bot_action": "Fase estesa: puoi valutare di ridurre l'importo della ricorrenza per non accumulare sui massimi "
+                          "locali, oppure accantonare parte in liquidità di riserva. La scelta resta tua.",
+        }
     else:
-        dca = {"level": "REGOLARE",
-               "reason": "Mercato in equilibrio: accumulo standard, quote costanti." + dist_txt}
+        dca = {
+            "level": "DI ROUTINE",
+            "reason": "Mercato in equilibrio: accumulo standard a quote costanti." + dist_txt,
+            "bot_state": "ATTIVO",
+            "bot_action": "Nessuna modifica necessaria: lascia correre l'automatismo secondo la tua pianificazione abituale.",
+        }
 
     return {
         "date": snap["date"],

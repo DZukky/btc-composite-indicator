@@ -65,8 +65,8 @@ def format_message(result: dict, dashboard_url: str | None = None) -> str:
         div_line = f"\n📉 <b>Divergenza RSI ribassista</b> ({result.get('last_divergence_age_days','?')}g fa) — attenzione, possibile inversione giù"
 
     dca = result.get("dca") or {}
-    dca_emoji = {"AGGRESSIVO": "🟢", "REGOLARE": "🔵", "PRUDENTE": "🟠"}.get(dca.get("level"), "🔵")
-    dca_line = f"\n💧 DCA: <b>{dca.get('level', 'REGOLARE')}</b> {dca_emoji}" if dca else ""
+    dca_emoji = {"SOSTENUTO": "🟢", "DI ROUTINE": "🔵", "RIDOTTO": "🟠"}.get(dca.get("level"), "🔵")
+    dca_line = f"\n💧 DCA: <b>{dca.get('level', 'DI ROUTINE')}</b> {dca_emoji}" if dca else ""
 
     msg = (
         f"<b>📅 BTC Composite — {result['date']}</b>\n"
