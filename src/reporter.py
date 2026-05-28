@@ -331,10 +331,8 @@ def _dca_and_bot_row(result: dict) -> str:
     dca_box = f"""
 <div class="card" style="background:{d['bg']};border-left:4px solid {d['border']};margin-bottom:0;flex:1;min-width:280px">
   <h2 style="margin:0 0 6px;font-size:1.1em;color:{d['color']}">💧 Strategia di accumulo (DCA)</h2>
-  <div style="font-size:1.5em;font-weight:700;color:{d['color']};margin:4px 0">
-    {d['emoji']} DCA {dca['level']}
-    <span style="font-size:0.5em;font-weight:600;background:{d['border']};color:white;padding:3px 10px;border-radius:10px;vertical-align:middle;margin-left:6px">{d['tag']}</span>
-  </div>
+  <div style="font-size:1.5em;font-weight:700;color:{d['color']};margin:4px 0">{d['emoji']} DCA {dca['level']}</div>
+  <div style="margin:2px 0 8px"><span style="display:inline-block;white-space:nowrap;font-size:0.78em;font-weight:600;background:{d['border']};color:white;padding:4px 12px;border-radius:12px">{d['tag']}</span></div>
   <div style="color:#475569;font-size:0.92em;line-height:1.5">{dca['reason']}</div>
   {ref}
 </div>"""
@@ -368,10 +366,9 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
     changes = h[h["signal"] != h["signal_prev"]].dropna(subset=["signal_prev"])
 
     fig = make_subplots(
-        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.04,
+        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
         row_heights=[0.65, 0.35],
-        subplot_titles=("Prezzo BTC con i segnali del modello sovrapposti",
-                        "Composite score storico (0=compra, 100=vendi)"),
+        subplot_titles=("Prezzo BTC + segnali", "Composite score (0=compra · 100=vendi)"),
     )
 
     fig.add_trace(go.Scatter(
@@ -434,12 +431,18 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
 
     fig.update_yaxes(type="log", title_text="USD (log)", row=1, col=1)
     fig.update_yaxes(range=[0, 100], title_text="score", row=2, col=1)
+    # titoli subplot più piccoli (evita taglio su mobile)
+    for ann in fig.layout.annotations:
+        ann.font.size = 12
+        ann.xanchor = "left"
+        ann.x = 0
     fig.update_layout(
         template="plotly_white",
-        height=620,
-        margin=dict(l=50, r=20, t=60, b=40),
+        height=640,
+        margin=dict(l=46, r=16, t=40, b=90),
         hovermode="x unified",
-        legend=dict(orientation="h", y=1.10, x=0.5, xanchor="center", font=dict(size=11)),
+        legend=dict(orientation="h", y=-0.14, x=0.5, xanchor="center",
+                    yanchor="top", font=dict(size=10)),
     )
     return fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="chart-history",
                        config={"responsive": True, "displayModeBar": False},
