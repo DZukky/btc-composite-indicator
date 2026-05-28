@@ -216,7 +216,7 @@ def _action_box(result: dict) -> str:
     steps_html = "".join(f"<li style='margin-bottom:8px'>{s}</li>" for s in steps)
 
     return f"""
-<div class="card" style="background:{detail['bg']};border-left:4px solid {detail['border']}">
+<div class="card" style="background:{detail['bg']};border-left:4px solid {detail['border']};flex:1;min-width:300px;margin-bottom:0">
   <h2 style="margin:0 0 12px;font-size:1.1em;color:{detail['color']}">✅ Cosa fare oggi</h2>
   <ol style="margin:0;padding-left:20px;color:#1e293b">{steps_html}</ol>
 </div>
@@ -252,30 +252,33 @@ def _regime_and_divergence_banner(result: dict) -> str:
         corr_badge = '<span style="display:inline-block;margin-left:8px;background:#f97316;color:white;padding:2px 8px;border-radius:8px;font-size:0.7em;vertical-align:middle">IN CORREZIONE</span>'
     label_extra = " · in correzione di medio termine" if correction else ""
 
+    # stile comune a tutti i box affiancati: ombra .card + border-left accento
+    col = 'class="card" style="margin-bottom:0;flex:1;min-width:240px;border-left:4px solid {accent};background:{bg}"'
+
     # Divergenza RSI recente
     div = result.get("last_divergence")
     if div == "bull":
-        div_html = f"""<div style="flex:1;min-width:240px;background:#dcfce7;border:1px solid #16a34a;border-radius:12px;padding:16px">
+        div_html = f"""<div {col.format(accent='#16a34a', bg='#dcfce7')}>
           <div style="font-size:0.8em;color:#15803d;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
           <div style="font-size:1.25em;font-weight:700;color:#15803d">📈 Divergenza RIALZISTA</div>
           <div style="font-size:0.88em;color:#475569;margin-top:4px">Rilevata {result.get('last_divergence_age_days','?')} giorni fa sul weekly. Il prezzo ha fatto un nuovo minimo ma l'RSI no → possibile inversione al rialzo (segnale di reversal verso l'alto).</div>
         </div>"""
     elif div == "bear":
-        div_html = f"""<div style="flex:1;min-width:240px;background:#fee2e2;border:1px solid #dc2626;border-radius:12px;padding:16px">
+        div_html = f"""<div {col.format(accent='#dc2626', bg='#fee2e2')}>
           <div style="font-size:0.8em;color:#991b1b;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
           <div style="font-size:1.25em;font-weight:700;color:#991b1b">📉 Divergenza RIBASSISTA</div>
           <div style="font-size:0.88em;color:#475569;margin-top:4px">Rilevata {result.get('last_divergence_age_days','?')} giorni fa sul weekly. Il prezzo ha fatto un nuovo massimo ma l'RSI no → possibile inversione al ribasso (attenzione, segnale di reversal verso il basso).</div>
         </div>"""
     else:
-        div_html = """<div style="flex:1;min-width:240px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px">
+        div_html = f"""<div {col.format(accent='#cbd5e1', bg='white')}>
           <div style="font-size:0.8em;color:#64748b;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
           <div style="font-size:1.25em;font-weight:700;color:#475569">➖ Nessuna divergenza recente</div>
           <div style="font-size:0.88em;color:#64748b;margin-top:4px">Nessuna divergenza prezzo/RSI significativa nelle ultime 6 settimane sul weekly. Niente segnale di inversione imminente da questo indicatore.</div>
         </div>"""
 
     return f"""
-<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px">
-  <div style="flex:1;min-width:240px;background:{rd['bg']};border:1px solid {rd['color']};border-radius:12px;padding:16px">
+<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px">
+  <div {col.format(accent=rd['color'], bg=rd['bg'])}>
     <div style="font-size:0.8em;color:{rd['color']};text-transform:uppercase;letter-spacing:1px">Regime di mercato</div>
     <div style="font-size:1.25em;font-weight:700;color:{rd['color']}">{rd['emoji']} {rd['label']}{corr_badge}</div>
     <div style="font-size:0.88em;color:#475569;margin-top:4px">{rd['desc']}{label_extra}</div>
@@ -288,11 +291,11 @@ def _regime_and_divergence_banner(result: dict) -> str:
 
 DCA_DETAIL = {
     "SOSTENUTO":  {"emoji": "🟢", "color": "#15803d", "bg": "#dcfce7", "border": "#16a34a",
-                   "tag": "Sconto favorevole"},
+                   "tag": "Prezzo favorevole"},
     "DI ROUTINE": {"emoji": "🔵", "color": "#1e40af", "bg": "#dbeafe", "border": "#3b82f6",
-                   "tag": "Accumulo standard"},
+                   "tag": "Prezzo in linea"},
     "RIDOTTO":    {"emoji": "🟠", "color": "#9a3412", "bg": "#ffedd5", "border": "#f97316",
-                   "tag": "Fase estesa"},
+                   "tag": "Prezzo elevato"},
 }
 
 
@@ -494,8 +497,8 @@ def _signal_distribution(history: pd.DataFrame) -> str:
 
     return f"""
 <div class="card">
-  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Storico: dove abbiamo passato il tempo</h2>
-  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">Distribuzione dei segnali sugli ultimi {total} giorni (dal {history['date'].min().date()}). I top sono rari, l'accumulazione è frequente.</p>
+  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Distribuzione storica dei segnali</h2>
+  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">Ripartizione percentuale dei segnali del modello sugli ultimi {total} giorni (dal {history['date'].min().date()}). I top sono rari, l'accumulo è frequente.</p>
   {''.join(bars)}
 </div>
 """
@@ -504,7 +507,7 @@ def _signal_distribution(history: pd.DataFrame) -> str:
 def _explain_target(result: dict) -> str:
     target = result["target_btc_exposure_pct"]
     return f"""
-<div class="card" style="background:#eff6ff;border-left:4px solid #3b82f6">
+<div class="card" style="background:#eff6ff;border-left:4px solid #3b82f6;flex:1;min-width:300px;margin-bottom:0">
   <h2 style="margin:0 0 8px;font-size:1em;color:#1e40af">ℹ️ Come si legge questo {target}%</h2>
   <p style="margin:0;color:#1e3a8a;font-size:0.92em;line-height:1.55">
     Il modello assume che tu abbia <b>già deciso quanto del tuo patrimonio destinare a BTC</b>
@@ -546,7 +549,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   h1 {{ margin: 0 0 6px; font-size: 1.4em; }}
   .meta {{ color: #64748b; margin-bottom: 24px; font-size: 0.95em; }}
   .card {{ background: white; border-radius: 12px; padding: 24px;
-           box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 20px; }}
+           box-shadow: 0 1px 4px rgba(15,23,42,0.08); margin-bottom: 20px; }}
   table {{ font-size: 0.95em; }}
   .disclaimer {{ background: #fef9e7; border-left: 4px solid #f1c40f;
                  padding: 14px 18px; border-radius: 4px; margin: 24px 0 8px;
@@ -560,15 +563,16 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 
   {hero}
 
+  {therm}
+
   {regime_div}
 
   {dca}
 
-  {action}
-
-  {explain}
-
-  {therm}
+  <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px">
+    {action}
+    {explain}
+  </div>
 
   {indicators}
 

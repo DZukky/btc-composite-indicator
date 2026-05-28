@@ -11,7 +11,7 @@
   h1 { margin: 0 0 6px; font-size: 1.4em; }
   .meta { color: #64748b; margin-bottom: 24px; font-size: 0.95em; }
   .card { background: white; border-radius: 12px; padding: 24px;
-           box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 20px; }
+           box-shadow: 0 1px 4px rgba(15,23,42,0.08); margin-bottom: 20px; }
   table { font-size: 0.95em; }
   .disclaimer { background: #fef9e7; border-left: 4px solid #f1c40f;
                  padding: 14px 18px; border-radius: 4px; margin: 24px 0 8px;
@@ -49,14 +49,32 @@
 
 
   
-<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px">
-  <div style="flex:1;min-width:240px;background:#dcfce7;border:1px solid #15803d;border-radius:12px;padding:16px">
+<div class="card">
+  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Quanto è caro/economico BTC adesso?</h2>
+  <p style="margin:0 0 20px;color:#64748b;font-size:0.95em">Composite score: <b style="color:#166534">31.4 / 100</b> · più è basso, più è economico</p>
+  <div style="position:relative;height:48px;border-radius:8px;overflow:hidden;background:linear-gradient(to right,#16a34a 0%,#22c55e 20%,#94a3b8 35%,#94a3b8 65%,#f97316 80%,#dc2626 100%)">
+    <div style="position:absolute;left:31.37%;top:-4px;bottom:-4px;width:4px;background:#0f172a;transform:translateX(-50%);box-shadow:0 0 0 2px white"></div>
+    <div style="position:absolute;left:31.37%;top:-28px;transform:translateX(-50%);background:#0f172a;color:white;padding:3px 8px;border-radius:6px;font-size:0.85em;font-weight:600;white-space:nowrap">31</div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:0.78em;color:#64748b">
+    <div style="text-align:center;flex:1"><b style="color:#16a34a">💚 0-20</b><br>Compra forte</div>
+    <div style="text-align:center;flex:1"><b style="color:#22c55e">🌱 20-35</b><br>Accumula</div>
+    <div style="text-align:center;flex:1"><b style="color:#475569">⚖️ 35-65</b><br>Mantieni</div>
+    <div style="text-align:center;flex:1"><b style="color:#f97316">🟠 65-80</b><br>Riduci</div>
+    <div style="text-align:center;flex:1"><b style="color:#dc2626">🔴 80-100</b><br>Vendi forte</div>
+  </div>
+</div>
+
+
+  
+<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px">
+  <div class="card" style="margin-bottom:0;flex:1;min-width:240px;border-left:4px solid #15803d;background:#dcfce7">
     <div style="font-size:0.8em;color:#15803d;text-transform:uppercase;letter-spacing:1px">Regime di mercato</div>
     <div style="font-size:1.25em;font-weight:700;color:#15803d">🟢 BULL MARKET<span style="display:inline-block;margin-left:8px;background:#f97316;color:white;padding:2px 8px;border-radius:8px;font-size:0.7em;vertical-align:middle">IN CORREZIONE</span></div>
     <div style="font-size:0.88em;color:#475569;margin-top:4px">Trend rialzista di fondo: il prezzo è sopra la media a 200 settimane, lo spartiacque storico tra bull e bear. · in correzione di medio termine</div>
     <div style="font-size:0.8em;color:#94a3b8;margin-top:6px">Media 200 settimane: $61,604</div>
   </div>
-  <div style="flex:1;min-width:240px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px">
+  <div class="card" style="margin-bottom:0;flex:1;min-width:240px;border-left:4px solid #cbd5e1;background:white">
           <div style="font-size:0.8em;color:#64748b;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
           <div style="font-size:1.25em;font-weight:700;color:#475569">➖ Nessuna divergenza recente</div>
           <div style="font-size:0.88em;color:#64748b;margin-top:4px">Nessuna divergenza prezzo/RSI significativa nelle ultime 6 settimane sul weekly. Niente segnale di inversione imminente da questo indicatore.</div>
@@ -71,7 +89,7 @@
   <h2 style="margin:0 0 6px;font-size:1.1em;color:#15803d">💧 Strategia di accumulo (DCA)</h2>
   <div style="font-size:1.5em;font-weight:700;color:#15803d;margin:4px 0">
     🟢 DCA SOSTENUTO
-    <span style="font-size:0.5em;font-weight:600;background:#16a34a;color:white;padding:3px 10px;border-radius:10px;vertical-align:middle;margin-left:6px">Sconto favorevole</span>
+    <span style="font-size:0.5em;font-weight:600;background:#16a34a;color:white;padding:3px 10px;border-radius:10px;vertical-align:middle;margin-left:6px">Prezzo favorevole</span>
   </div>
   <div style="color:#475569;font-size:0.92em;line-height:1.5">Fase di accumulo favorevole su livelli storicamente solidi (composite basso). Il prezzo è 9% sotto la media a 200 giorni.</div>
   <div style="font-size:0.8em;color:#94a3b8;margin-top:8px">
@@ -90,15 +108,15 @@
 </div>
 </div>
 
-  
-<div class="card" style="background:#d1fae5;border-left:4px solid #22c55e">
+  <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px">
+    
+<div class="card" style="background:#d1fae5;border-left:4px solid #22c55e;flex:1;min-width:300px;margin-bottom:0">
   <h2 style="margin:0 0 12px;font-size:1.1em;color:#166534">✅ Cosa fare oggi</h2>
   <ol style="margin:0;padding-left:20px;color:#1e293b"><li style='margin-bottom:8px'>Tieni il <b>86.6%</b> della <b>quota che hai destinato a BTC</b> investita in Bitcoin (il resto in stable/cash).</li><li style='margin-bottom:8px'><b>Modalità d'ingresso</b>: piccoli buy settimanali, niente fretta.</li><li style='margin-bottom:8px'><b>Cosa monitorare</b>: se il composite scende sotto 20 → passa a STRONG_BUY → accelera gli acquisti.</li></ol>
 </div>
 
-
-  
-<div class="card" style="background:#eff6ff;border-left:4px solid #3b82f6">
+    
+<div class="card" style="background:#eff6ff;border-left:4px solid #3b82f6;flex:1;min-width:300px;margin-bottom:0">
   <h2 style="margin:0 0 8px;font-size:1em;color:#1e40af">ℹ️ Come si legge questo 86.6%</h2>
   <p style="margin:0;color:#1e3a8a;font-size:0.92em;line-height:1.55">
     Il modello assume che tu abbia <b>già deciso quanto del tuo patrimonio destinare a BTC</b>
@@ -109,24 +127,7 @@
   </p>
 </div>
 
-
-  
-<div class="card">
-  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Quanto è caro/economico BTC adesso?</h2>
-  <p style="margin:0 0 20px;color:#64748b;font-size:0.95em">Composite score: <b style="color:#166534">31.4 / 100</b> · più è basso, più è economico</p>
-  <div style="position:relative;height:48px;border-radius:8px;overflow:hidden;background:linear-gradient(to right,#16a34a 0%,#22c55e 20%,#94a3b8 35%,#94a3b8 65%,#f97316 80%,#dc2626 100%)">
-    <div style="position:absolute;left:31.37%;top:-4px;bottom:-4px;width:4px;background:#0f172a;transform:translateX(-50%);box-shadow:0 0 0 2px white"></div>
-    <div style="position:absolute;left:31.37%;top:-28px;transform:translateX(-50%);background:#0f172a;color:white;padding:3px 8px;border-radius:6px;font-size:0.85em;font-weight:600;white-space:nowrap">31</div>
   </div>
-  <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:0.78em;color:#64748b">
-    <div style="text-align:center;flex:1"><b style="color:#16a34a">💚 0-20</b><br>Compra forte</div>
-    <div style="text-align:center;flex:1"><b style="color:#22c55e">🌱 20-35</b><br>Accumula</div>
-    <div style="text-align:center;flex:1"><b style="color:#475569">⚖️ 35-65</b><br>Mantieni</div>
-    <div style="text-align:center;flex:1"><b style="color:#f97316">🟠 65-80</b><br>Riduci</div>
-    <div style="text-align:center;flex:1"><b style="color:#dc2626">🔴 80-100</b><br>Vendi forte</div>
-  </div>
-</div>
-
 
   
 <div class="card">
@@ -311,8 +312,8 @@
 
   
 <div class="card">
-  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Storico: dove abbiamo passato il tempo</h2>
-  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">Distribuzione dei segnali sugli ultimi 3802 giorni (dal 2015-12-31). I top sono rari, l'accumulazione è frequente.</p>
+  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Distribuzione storica dei segnali</h2>
+  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">Ripartizione percentuale dei segnali del modello sugli ultimi 3802 giorni (dal 2015-12-31). I top sono rari, l'accumulo è frequente.</p>
   
 <div style="margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;font-size:0.9em;margin-bottom:4px">
