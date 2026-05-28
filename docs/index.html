@@ -35,6 +35,19 @@
     .hero-right { text-align: left !important; min-width: 100% !important; margin-top: 12px; }
     table { font-size: 0.85em; }
     th, td { padding: 8px 8px !important; }
+    /* Tabella cambi → schede impilate: niente scroll orizzontale, tutto visibile */
+    .changes-tbl thead { display: none; }
+    .changes-tbl, .changes-tbl tbody, .changes-tbl tr, .changes-tbl td { display: block; width: 100%; }
+    .changes-tbl tr { border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 12px; margin-bottom: 12px; }
+    .changes-tbl td {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0 !important; border-bottom: 1px solid #f1f5f9;
+    }
+    .changes-tbl td:last-child { border-bottom: none; }
+    .changes-tbl td::before {
+      content: attr(data-label); color: #94a3b8; font-weight: 600;
+      font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 12px;
+    }
   }
 </style>
 </head>
@@ -309,54 +322,54 @@
   </p>
   
 <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0 4px">
-  <div style="width:10%;background:#16a34a"></div>
-  <div style="width:45%;background:#cbd5e1"></div>
-  <div style="width:45%;background:#dc2626"></div>
+  <div style="width:15%;background:#16a34a"></div>
+  <div style="width:55%;background:#cbd5e1"></div>
+  <div style="width:30%;background:#dc2626"></div>
 </div>
 <div style="display:flex;justify-content:space-between;font-size:0.8em;color:#64748b;margin-bottom:16px">
-  <span style="color:#16a34a;font-weight:600">🟢 10% Bullish</span>
-  <span>⚪ 45% Neutrale</span>
-  <span style="color:#dc2626;font-weight:600">🔴 45% Bearish</span>
+  <span style="color:#16a34a;font-weight:600">🟢 15% Bullish</span>
+  <span>⚪ 55% Neutrale</span>
+  <span style="color:#dc2626;font-weight:600">🔴 30% Bearish</span>
 </div>
   <div>
-<a href="https://www.coindesk.com/business/2026/05/27/vaneck-s-tokenized-fund-lands-on-euler-as-defi-courts-wall-street-institutions" target="_blank" rel="noopener noreferrer"
+<a href="https://www.coindesk.com/coindesk-indices/2026/05/28/coindesk-20-performance-update-stellar-xlm-jumps-10-5-as-nearly-all-assets-fall" target="_blank" rel="noopener noreferrer"
    style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9;text-decoration:none;color:inherit">
   <span style="font-size:0.95em;flex-shrink:0">⚪</span>
   <span style="flex:1;min-width:0">
-    <span style="font-size:0.93em;color:#1e293b;font-weight:500">VanEck&#x27;s tokenized fund lands on Euler as DeFi courts Wall Street institutions</span>
+    <span style="font-size:0.93em;color:#1e293b;font-weight:500">CoinDesk 20 performance update: Stellar (XLM) jumps 10.5% as nearly all assets fall</span>
     <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">CoinDesk · 28/05 ↗</span>
   </span>
 </a>
-<a href="https://www.coindesk.com/daybook-us/2026/05/28/u-s-iran-strikes-rattle-global-markets-send-bitcoin-to-6-week-low" target="_blank" rel="noopener noreferrer"
+<a href="https://cointelegraph.com/news/samsung-dunamu-stake-upbit-digital-assets?utm_source=rss_feed&amp;utm_medium=rss&amp;utm_campaign=rss_partner_inbound" target="_blank" rel="noopener noreferrer"
    style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9;text-decoration:none;color:inherit">
   <span style="font-size:0.95em;flex-shrink:0">⚪</span>
   <span style="flex:1;min-width:0">
-    <span style="font-size:0.93em;color:#1e293b;font-weight:500">U.S.-Iran strikes rattle global markets, send bitcoin to 6-week low</span>
-    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">CoinDesk · 28/05 ↗</span>
+    <span style="font-size:0.93em;color:#1e293b;font-weight:500">Samsung units take $408M stake in Upbit operator Dunamu: Report</span>
+    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">Cointelegraph · 28/05 ↗</span>
   </span>
 </a>
-<a href="https://www.coindesk.com/business/2026/05/28/samsung-is-buying-a-usd446-million-stake-in-south-korea-s-biggest-crypto-exchange" target="_blank" rel="noopener noreferrer"
+<a href="https://cointelegraph.com/markets/ethereum-under-2k-eth-whales-sell-as-retail-remains-bullish?utm_source=rss_feed&amp;utm_medium=rss&amp;utm_campaign=rss_partner_inbound" target="_blank" rel="noopener noreferrer"
    style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9;text-decoration:none;color:inherit">
   <span style="font-size:0.95em;flex-shrink:0">🟢</span>
   <span style="flex:1;min-width:0">
-    <span style="font-size:0.93em;color:#1e293b;font-weight:500">Samsung units to buy $408 million stake in South Korea’s biggest crypto exchange</span>
-    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">CoinDesk · 28/05 ↗</span>
+    <span style="font-size:0.93em;color:#1e293b;font-weight:500">Ethereum under $2K: ETH whales sell as retail remains bullish</span>
+    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">Cointelegraph · 28/05 ↗</span>
   </span>
 </a>
-<a href="https://www.coindesk.com/markets/2026/05/28/bitcoin-s-famous-cme-gaps-are-about-to-disappear-though-three-remain-unresolved" target="_blank" rel="noopener noreferrer"
-   style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9;text-decoration:none;color:inherit">
-  <span style="font-size:0.95em;flex-shrink:0">⚪</span>
-  <span style="flex:1;min-width:0">
-    <span style="font-size:0.93em;color:#1e293b;font-weight:500">Bitcoin’s famous CME gaps are about to disappear, though three remain unresolved</span>
-    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">CoinDesk · 28/05 ↗</span>
-  </span>
-</a>
-<a href="https://www.coindesk.com/markets/2026/05/28/crypto-slides-on-hormuz-airstrikes-as-usd897-million-in-long-liquidations-pile-up" target="_blank" rel="noopener noreferrer"
+<a href="https://cointelegraph.com/news/blackrocks-bitcoin-etf-ibit-near-record-outflows-btc-dip?utm_source=rss_feed&amp;utm_medium=rss&amp;utm_campaign=rss_partner_inbound" target="_blank" rel="noopener noreferrer"
    style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9;text-decoration:none;color:inherit">
   <span style="font-size:0.95em;flex-shrink:0">🔴</span>
   <span style="flex:1;min-width:0">
-    <span style="font-size:0.93em;color:#1e293b;font-weight:500">Crypto slides on Hormuz airstrikes as $897 million in long liquidations pile up</span>
-    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">CoinDesk · 28/05 ↗</span>
+    <span style="font-size:0.93em;color:#1e293b;font-weight:500">BlackRock Bitcoin ETF sees near-record outflows as BTC dips below $75K</span>
+    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">Cointelegraph · 28/05 ↗</span>
+  </span>
+</a>
+<a href="https://cointelegraph.com/news/unknown-sender-burns-107-btc-unexplained-bitcoin-transfer?utm_source=rss_feed&amp;utm_medium=rss&amp;utm_campaign=rss_partner_inbound" target="_blank" rel="noopener noreferrer"
+   style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9;text-decoration:none;color:inherit">
+  <span style="font-size:0.95em;flex-shrink:0">⚪</span>
+  <span style="flex:1;min-width:0">
+    <span style="font-size:0.93em;color:#1e293b;font-weight:500">Mystery Bitcoin burn destroys 107 BTC worth about $8.5M</span>
+    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">Cointelegraph · 28/05 ↗</span>
   </span>
 </a></div>
   <p style="margin:14px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45">
@@ -464,7 +477,7 @@
     Misura <i>indicativa</i>; trattino grigio = orizzonte non ancora maturo.
     <b>Aver funzionato in passato non garantisce risultati futuri.</b>
   </p>
-  <div class="tbl-scroll"><table style="width:100%;border-collapse:collapse;min-width:560px">
+  <div class="tbl-scroll"><table class="changes-tbl" style="width:100%;border-collapse:collapse">
     <thead><tr style="background:#f1f5f9;color:#475569;font-size:0.85em;text-transform:uppercase;letter-spacing:1px">
       <th style="padding:8px 12px;text-align:left">Data</th>
       <th style="padding:8px 12px;text-align:left">BTC</th>
@@ -472,25 +485,25 @@
       <th style="padding:8px 12px;text-align:left">Esito 30gg</th><th style="padding:8px 12px;text-align:left">Esito 90gg</th><th style="padding:8px 12px;text-align:left">Esito 180gg</th>
     </tr></thead>
     <tbody><tr>
-          <td style="padding:10px 12px;color:#475569">2026-04-07</td>
-          <td style="padding:10px 12px;font-family:monospace">$71,918</td>
-          <td style="padding:10px 12px;font-weight:600;color:#166534">🌱 Accumula</td>
-          <td style="padding:10px 12px"><span style="color:#16a34a;font-weight:600;white-space:nowrap">✅ +11%</span></td><td style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td><td style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td>
+          <td data-label="Data" style="padding:10px 12px;color:#475569">2026-04-07</td>
+          <td data-label="BTC" style="padding:10px 12px;font-family:monospace">$71,918</td>
+          <td data-label="Segnale" style="padding:10px 12px;font-weight:600;color:#166534">🌱 Accumula</td>
+          <td data-label="Esito 30gg" style="padding:10px 12px"><span style="color:#16a34a;font-weight:600;white-space:nowrap">✅ +11%</span></td><td data-label="Esito 90gg" style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td><td data-label="Esito 180gg" style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td>
         </tr><tr>
-          <td style="padding:10px 12px;color:#475569">2026-03-29</td>
-          <td style="padding:10px 12px;font-family:monospace">$65,968</td>
-          <td style="padding:10px 12px;font-weight:600;color:#15803d">💚 Compra forte</td>
-          <td style="padding:10px 12px"><span style="color:#16a34a;font-weight:600;white-space:nowrap">✅ +16%</span></td><td style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td><td style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td>
+          <td data-label="Data" style="padding:10px 12px;color:#475569">2026-03-29</td>
+          <td data-label="BTC" style="padding:10px 12px;font-family:monospace">$65,968</td>
+          <td data-label="Segnale" style="padding:10px 12px;font-weight:600;color:#15803d">💚 Compra forte</td>
+          <td data-label="Esito 30gg" style="padding:10px 12px"><span style="color:#16a34a;font-weight:600;white-space:nowrap">✅ +16%</span></td><td data-label="Esito 90gg" style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td><td data-label="Esito 180gg" style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td>
         </tr><tr>
-          <td style="padding:10px 12px;color:#475569">2026-03-16</td>
-          <td style="padding:10px 12px;font-family:monospace">$74,885</td>
-          <td style="padding:10px 12px;font-weight:600;color:#166534">🌱 Accumula</td>
-          <td style="padding:10px 12px"><span style="color:#dc2626;font-weight:600;white-space:nowrap">❌ -0%</span></td><td style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td><td style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td>
+          <td data-label="Data" style="padding:10px 12px;color:#475569">2026-03-16</td>
+          <td data-label="BTC" style="padding:10px 12px;font-family:monospace">$74,885</td>
+          <td data-label="Segnale" style="padding:10px 12px;font-weight:600;color:#166534">🌱 Accumula</td>
+          <td data-label="Esito 30gg" style="padding:10px 12px"><span style="color:#dc2626;font-weight:600;white-space:nowrap">❌ -0%</span></td><td data-label="Esito 90gg" style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td><td data-label="Esito 180gg" style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td>
         </tr><tr>
-          <td style="padding:10px 12px;color:#475569">2026-02-05</td>
-          <td style="padding:10px 12px;font-family:monospace">$62,812</td>
-          <td style="padding:10px 12px;font-weight:600;color:#15803d">💚 Compra forte</td>
-          <td style="padding:10px 12px"><span style="color:#16a34a;font-weight:600;white-space:nowrap">✅ +7%</span></td><td style="padding:10px 12px"><span style="color:#16a34a;font-weight:600;white-space:nowrap">✅ +30%</span></td><td style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td>
+          <td data-label="Data" style="padding:10px 12px;color:#475569">2026-02-05</td>
+          <td data-label="BTC" style="padding:10px 12px;font-family:monospace">$62,812</td>
+          <td data-label="Segnale" style="padding:10px 12px;font-weight:600;color:#15803d">💚 Compra forte</td>
+          <td data-label="Esito 30gg" style="padding:10px 12px"><span style="color:#16a34a;font-weight:600;white-space:nowrap">✅ +7%</span></td><td data-label="Esito 90gg" style="padding:10px 12px"><span style="color:#16a34a;font-weight:600;white-space:nowrap">✅ +30%</span></td><td data-label="Esito 180gg" style="padding:10px 12px"><span style="color:#cbd5e1">–</span></td>
         </tr></tbody>
   </table></div>
 </div>

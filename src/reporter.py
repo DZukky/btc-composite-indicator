@@ -588,13 +588,13 @@ def _recent_signal_changes(history: pd.DataFrame, n: int = 8, horizons=(30, 90, 
         d_curr = SIGNAL_DETAIL.get(curr, SIGNAL_DETAIL["HOLD"])
         curr_it = SIGNAL_SHORT_IT.get(curr, curr)
         cells = "".join(
-            f'<td style="padding:10px 12px">{_outcome_cell(curr, float(r["btc_close"]), price_at_horizon(r["date"], hz))}</td>'
+            f'<td data-label="Esito {hz}gg" style="padding:10px 12px">{_outcome_cell(curr, float(r["btc_close"]), price_at_horizon(r["date"], hz))}</td>'
             for hz in horizons
         )
         rows.append(f"""<tr>
-          <td style="padding:10px 12px;color:#475569">{r['date'].date()}</td>
-          <td style="padding:10px 12px;font-family:monospace">${r['btc_close']:,.0f}</td>
-          <td style="padding:10px 12px;font-weight:600;color:{d_curr['color']}">{d_curr['emoji']} {curr_it}</td>
+          <td data-label="Data" style="padding:10px 12px;color:#475569">{r['date'].date()}</td>
+          <td data-label="BTC" style="padding:10px 12px;font-family:monospace">${r['btc_close']:,.0f}</td>
+          <td data-label="Segnale" style="padding:10px 12px;font-weight:600;color:{d_curr['color']}">{d_curr['emoji']} {curr_it}</td>
           {cells}
         </tr>""")
 
@@ -615,7 +615,7 @@ def _recent_signal_changes(history: pd.DataFrame, n: int = 8, horizons=(30, 90, 
     Misura <i>indicativa</i>; trattino grigio = orizzonte non ancora maturo.
     <b>Aver funzionato in passato non garantisce risultati futuri.</b>
   </p>
-  <div class="tbl-scroll"><table style="width:100%;border-collapse:collapse;min-width:560px">
+  <div class="tbl-scroll"><table class="changes-tbl" style="width:100%;border-collapse:collapse">
     <thead><tr style="background:#f1f5f9;color:#475569;font-size:0.85em;text-transform:uppercase;letter-spacing:1px">
       <th style="padding:8px 12px;text-align:left">Data</th>
       <th style="padding:8px 12px;text-align:left">BTC</th>
@@ -812,6 +812,19 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     .hero-right {{ text-align: left !important; min-width: 100% !important; margin-top: 12px; }}
     table {{ font-size: 0.85em; }}
     th, td {{ padding: 8px 8px !important; }}
+    /* Tabella cambi → schede impilate: niente scroll orizzontale, tutto visibile */
+    .changes-tbl thead {{ display: none; }}
+    .changes-tbl, .changes-tbl tbody, .changes-tbl tr, .changes-tbl td {{ display: block; width: 100%; }}
+    .changes-tbl tr {{ border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 12px; margin-bottom: 12px; }}
+    .changes-tbl td {{
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0 !important; border-bottom: 1px solid #f1f5f9;
+    }}
+    .changes-tbl td:last-child {{ border-bottom: none; }}
+    .changes-tbl td::before {{
+      content: attr(data-label); color: #94a3b8; font-weight: 600;
+      font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 12px;
+    }}
   }}
 </style>
 </head>
