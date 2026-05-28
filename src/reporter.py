@@ -533,9 +533,12 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
         margin=dict(l=46, r=16, t=10, b=30),
         hovermode="x unified",
         showlegend=False,
+        dragmode=False,  # niente pan/zoom col drag → su mobile lo scroll resta alla pagina
     )
     return fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="chart-history",
-                       config={"responsive": True, "displayModeBar": False},
+                       config={"responsive": True, "displayModeBar": False,
+                               "scrollZoom": False, "doubleClick": False,
+                               "staticPlot": False},
                        default_width="100%")
 
 
@@ -792,6 +795,8 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   table {{ font-size: 0.95em; width: 100%; }}
   .tbl-scroll {{ overflow-x: auto; -webkit-overflow-scrolling: touch; }}
   .js-plotly-plot, .plotly, .plot-container {{ width: 100% !important; max-width: 100%; }}
+  /* su touch lo scroll verticale resta alla pagina, niente pan/zoom accidentale del grafico */
+  #chart-history, #chart-history *, .js-plotly-plot, .js-plotly-plot * {{ touch-action: pan-y !important; }}
   .disclaimer {{ background: #fef9e7; border-left: 4px solid #f1c40f;
                  padding: 14px 18px; border-radius: 4px; margin: 24px 0 8px;
                  color: #713f12; font-size: 0.88em; line-height: 1.5; }}
