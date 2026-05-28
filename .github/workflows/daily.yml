@@ -1,8 +1,8 @@
 name: BTC Composite Daily
 
 on:
-  schedule:
-    - cron: "0 6 * * *"   # 06:00 UTC = 08:00 CET / 07:00 CEST
+  # Trigger affidabile via cron-job.org (workflow_dispatch alle 06:00 UTC).
+  # Il cron nativo di GitHub è stato rimosso: veniva ritardato di ore.
   workflow_dispatch:
 
 permissions:
