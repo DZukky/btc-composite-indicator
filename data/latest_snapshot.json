@@ -61,5 +61,11 @@
       "zone": "lime",
       "weight": 0.07
     }
-  }
+  },
+  "regime": "BULL",
+  "regime_correction": true,
+  "sma_200w": 61604.15854999999,
+  "last_divergence": null,
+  "last_divergence_date": null,
+  "last_divergence_age_days": null
 }

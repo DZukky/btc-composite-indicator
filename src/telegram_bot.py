@@ -52,15 +52,28 @@ def format_message(result: dict, dashboard_url: str | None = None) -> str:
     action = SIGNAL_ACTION_IT.get(result["signal"], "")
     btc = f"${result['btc_close']:,.0f}" if result["btc_close"] else "n/a"
 
+    regime_map = {"BULL": "🟢 Bull market", "BEAR": "🔴 Bear market"}
+    regime_line = regime_map.get(result.get("regime", "BULL"), "🟢 Bull market")
+    if result.get("regime_correction"):
+        regime_line += " (in correzione)"
+
+    div = result.get("last_divergence")
+    div_line = ""
+    if div == "bull":
+        div_line = f"\n📈 <b>Divergenza RSI rialzista</b> ({result.get('last_divergence_age_days','?')}g fa) — possibile inversione su"
+    elif div == "bear":
+        div_line = f"\n📉 <b>Divergenza RSI ribassista</b> ({result.get('last_divergence_age_days','?')}g fa) — attenzione, possibile inversione giù"
+
     msg = (
         f"<b>📅 BTC Composite — {result['date']}</b>\n"
-        f"BTC oggi: <b>{btc}</b>\n\n"
+        f"BTC oggi: <b>{btc}</b> · {regime_line}\n\n"
         f"{emoji} <b>{label}</b>\n"
         f"<i>{action}</i>\n\n"
         f"💰 <b>Allocazione BTC suggerita: {result['target_btc_exposure_pct']}%</b>\n"
         f"<i>(della quota cripto che hai già destinato a BTC, non del patrimonio totale)</i>\n\n"
         f"📊 Composite score: {result['composite_score']}/100\n"
         f"🟢 Favorevoli: {result['green_count']}/9 · 🔴 Negativi: {result['red_count']}/9"
+        f"{div_line}"
     )
 
     if dashboard_url:

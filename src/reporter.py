@@ -233,7 +233,60 @@ CYCLE_ANNOTATIONS_HUMAN = [
 ]
 
 
-def _history_with_signals(history: pd.DataFrame) -> str:
+REGIME_DETAIL = {
+    "BULL":  {"emoji": "🟢", "label": "BULL MARKET", "color": "#15803d", "bg": "#dcfce7",
+              "desc": "Trend rialzista di fondo: il prezzo è sopra la media a 200 settimane, lo spartiacque storico tra bull e bear."},
+    "BEAR":  {"emoji": "🔴", "label": "BEAR MARKET", "color": "#991b1b", "bg": "#fee2e2",
+              "desc": "Trend ribassista di fondo: il prezzo è sotto la media a 200 settimane, lo spartiacque storico tra bull e bear."},
+}
+
+
+def _regime_and_divergence_banner(result: dict) -> str:
+    regime = result.get("regime", "BULL")
+    rd = REGIME_DETAIL.get(regime, REGIME_DETAIL["BULL"])
+    sma200 = result.get("sma_200w")
+    sma_str = f"${sma200:,.0f}" if sma200 else "n/a"
+    correction = result.get("regime_correction", False)
+    corr_badge = ""
+    if correction:
+        corr_badge = '<span style="display:inline-block;margin-left:8px;background:#f97316;color:white;padding:2px 8px;border-radius:8px;font-size:0.7em;vertical-align:middle">IN CORREZIONE</span>'
+    label_extra = " · in correzione di medio termine" if correction else ""
+
+    # Divergenza RSI recente
+    div = result.get("last_divergence")
+    if div == "bull":
+        div_html = f"""<div style="flex:1;min-width:240px;background:#dcfce7;border:1px solid #16a34a;border-radius:12px;padding:16px">
+          <div style="font-size:0.8em;color:#15803d;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
+          <div style="font-size:1.25em;font-weight:700;color:#15803d">📈 Divergenza RIALZISTA</div>
+          <div style="font-size:0.88em;color:#475569;margin-top:4px">Rilevata {result.get('last_divergence_age_days','?')} giorni fa sul weekly. Il prezzo ha fatto un nuovo minimo ma l'RSI no → possibile inversione al rialzo (segnale di reversal verso l'alto).</div>
+        </div>"""
+    elif div == "bear":
+        div_html = f"""<div style="flex:1;min-width:240px;background:#fee2e2;border:1px solid #dc2626;border-radius:12px;padding:16px">
+          <div style="font-size:0.8em;color:#991b1b;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
+          <div style="font-size:1.25em;font-weight:700;color:#991b1b">📉 Divergenza RIBASSISTA</div>
+          <div style="font-size:0.88em;color:#475569;margin-top:4px">Rilevata {result.get('last_divergence_age_days','?')} giorni fa sul weekly. Il prezzo ha fatto un nuovo massimo ma l'RSI no → possibile inversione al ribasso (attenzione, segnale di reversal verso il basso).</div>
+        </div>"""
+    else:
+        div_html = """<div style="flex:1;min-width:240px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px">
+          <div style="font-size:0.8em;color:#64748b;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
+          <div style="font-size:1.25em;font-weight:700;color:#475569">➖ Nessuna divergenza recente</div>
+          <div style="font-size:0.88em;color:#64748b;margin-top:4px">Nessuna divergenza prezzo/RSI significativa nelle ultime 6 settimane sul weekly. Niente segnale di inversione imminente da questo indicatore.</div>
+        </div>"""
+
+    return f"""
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px">
+  <div style="flex:1;min-width:240px;background:{rd['bg']};border:1px solid {rd['color']};border-radius:12px;padding:16px">
+    <div style="font-size:0.8em;color:{rd['color']};text-transform:uppercase;letter-spacing:1px">Regime di mercato</div>
+    <div style="font-size:1.25em;font-weight:700;color:{rd['color']}">{rd['emoji']} {rd['label']}{corr_badge}</div>
+    <div style="font-size:0.88em;color:#475569;margin-top:4px">{rd['desc']}{label_extra}</div>
+    <div style="font-size:0.8em;color:#94a3b8;margin-top:6px">Media 200 settimane: {sma_str}</div>
+  </div>
+  {div_html}
+</div>
+"""
+
+
+def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | None = None) -> str:
     """Grafico unico: prezzo BTC log con punti scatter colorati ai cambi di signal."""
     if history is None or history.empty:
         return ""
@@ -270,6 +323,26 @@ def _history_with_signals(history: pd.DataFrame) -> str:
                             line=dict(color="white", width=1.5)),
                 hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<br><b>" + sig + "</b><extra></extra>",
             ), row=1, col=1)
+
+    # Markers divergenze RSI sul prezzo (piccole X colorate)
+    if divergences is not None and not divergences.empty:
+        h_idx = h.set_index("date")["btc_close"]
+        for dtype, color, name in [("bull", "#16a34a", "↑ Div. rialzista"),
+                                    ("bear", "#dc2626", "↓ Div. ribassista")]:
+            sub = divergences[divergences["type"] == dtype]
+            xs, ys = [], []
+            for _, dv in sub.iterrows():
+                dd = pd.to_datetime(dv["date"])
+                nearest = h_idx.index[h_idx.index.get_indexer([dd], method="nearest")[0]] if len(h_idx) else None
+                if nearest is not None:
+                    xs.append(nearest)
+                    ys.append(h_idx.loc[nearest])
+            if xs:
+                fig.add_trace(go.Scatter(
+                    x=xs, y=ys, mode="markers", name=name,
+                    marker=dict(color=color, size=8, symbol="x-thin", line=dict(color=color, width=2)),
+                    hovertemplate="%{x|%Y-%m-%d}<br>Divergenza " + dtype + "<extra></extra>",
+                ), row=1, col=1)
 
     fig.add_trace(go.Scatter(
         x=h["date"], y=h["composite_score"], name="Composite",
@@ -389,13 +462,15 @@ def _explain_target(result: dict) -> str:
 """
 
 
-def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None) -> Path:
+def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None,
+                    divergences: pd.DataFrame | None = None) -> Path:
     hero = _hero_banner(result)
+    regime_div = _regime_and_divergence_banner(result)
     therm = _thermometer(result)
     action = _action_box(result)
     explain = _explain_target(result)
     indicators = _indicators_table_human(result)
-    history_chart = _history_with_signals(history) if history is not None else ""
+    history_chart = _history_with_signals(history, divergences=divergences) if history is not None else ""
     changes_table = _recent_signal_changes(history) if history is not None else ""
     distribution = _signal_distribution(history) if history is not None else ""
 
@@ -429,6 +504,8 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 
   {hero}
 
+  {regime_div}
+
   {action}
 
   {explain}
@@ -440,9 +517,10 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   <div class="card">
     <h2 style="margin:0 0 6px;font-size:1.1em">📈 Come ha funzionato il modello nella storia</h2>
     <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">
-      I triangoli verdi 🟢 sono i momenti in cui il modello diceva di <b>comprare forte</b>.
-      I triangoli rossi 🔴 quando diceva di <b>vendere forte</b>.
-      Guardali sovrapposti al prezzo BTC: hanno avvisato in anticipo i top del 2021 ($62k → -50%) e i bottom 2018, 2020, 2022.
+      I triangoli verdi 🟢 sono i momenti in cui il modello diceva di <b>comprare forte</b>,
+      i rossi 🔴 quando diceva di <b>vendere forte</b>. Le <b>✕</b> sono le divergenze RSI
+      (verde = possibile inversione su, rossa = giù). Guardali sovrapposti al prezzo BTC:
+      hanno avvisato in anticipo i top del 2021 ($62k → -50%) e i bottom 2018, 2020, 2022.
     </p>
     {history_chart}
   </div>

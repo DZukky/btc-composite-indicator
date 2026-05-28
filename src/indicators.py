@@ -54,7 +54,97 @@ def compute_price_indicators(price: pd.DataFrame) -> pd.DataFrame:
     df["bmsb_mid"] = bmsb_mid
     df["bmsb"] = df["close"] / df["bmsb_mid"]
 
+    # 200-week MA: divisore macro Bull/Bear classico
+    sma_200w = weekly.rolling(200).mean()
+    df["sma_200w"] = sma_200w.reindex(df["date"], method="ffill").values
+
     return df
+
+
+def compute_regime(df: pd.DataFrame) -> pd.DataFrame:
+    """Bull/Bear regime macro.
+
+    Divisore primario = media a 200 settimane (il classico spartiacque di ciclo):
+      BULL  = prezzo sopra la 200WMA
+      BEAR  = prezzo sotto la 200WMA
+    Sotto-stato "in correzione" = prezzo sotto la Bull Market Support Band (20W/21W),
+    cioè debolezza di medio termine dentro un trend.
+    """
+    df = df.copy()
+    above_200w = df["close"] > df["sma_200w"]
+    above_bmsb = df["close"] > df["bmsb_mid"]
+    df["regime"] = np.where(above_200w, "BULL", "BEAR")
+    df["regime_correction"] = above_200w & ~above_bmsb  # bull ma sotto la banda
+    return df
+
+
+def _find_pivots(series: pd.Series, lbL: int = 5, lbR: int = 5, kind: str = "low") -> list[int]:
+    """Indici dei pivot (low o high) confermati: estremo locale con lbL barre a
+    sinistra e lbR a destra. Replica ta.pivotlow/ta.pivothigh di Pine."""
+    vals = series.values
+    n = len(vals)
+    out = []
+    for i in range(lbL, n - lbR):
+        window = vals[i - lbL: i + lbR + 1]
+        if np.isnan(vals[i]) or np.isnan(window).any():
+            continue
+        if kind == "low" and vals[i] == window.min() and (window.min() < window[:lbL].min() or True):
+            # confermato come minimo locale stretto
+            if vals[i] <= window.min():
+                out.append(i)
+        elif kind == "high" and vals[i] >= window.max():
+            out.append(i)
+    # dedup pivots troppo vicini (tieni il primo di una run)
+    cleaned = []
+    for idx in out:
+        if cleaned and idx - cleaned[-1] <= lbR:
+            continue
+        cleaned.append(idx)
+    return cleaned
+
+
+def compute_rsi_divergences(price: pd.DataFrame, lbL: int = 5, lbR: int = 5,
+                            range_lower: int = 5, range_upper: int = 60) -> pd.DataFrame:
+    """Divergenze RSI sul WEEKLY (logica dell'RSI Divergence Indicator di TradingView).
+
+    Regular Bullish : prezzo Lower-Low  + RSI Higher-Low  → possibile reversal UP
+    Regular Bearish : prezzo Higher-High + RSI Lower-High  → possibile reversal DOWN
+
+    Restituisce DataFrame con [date, type] (type in {bull, bear}).
+    """
+    p = price[["date", "close", "high", "low"]].copy().sort_values("date").reset_index(drop=True)
+    weekly = p.set_index("date").resample("W-MON").agg(
+        {"close": "last", "high": "max", "low": "min"}
+    ).dropna()
+    rsi = _rsi(weekly["close"], 14)
+
+    pl = _find_pivots(rsi, lbL, lbR, "low")
+    ph = _find_pivots(rsi, lbL, lbR, "high")
+
+    events = []
+    # Regular Bullish: confronta pivot low consecutivi dell'RSI
+    for a, b in zip(pl, pl[1:]):
+        gap = b - a
+        if not (range_lower <= gap <= range_upper):
+            continue
+        rsi_hl = rsi.iloc[b] > rsi.iloc[a]
+        price_ll = weekly["low"].iloc[b] < weekly["low"].iloc[a]
+        if rsi_hl and price_ll:
+            events.append({"date": weekly.index[b], "type": "bull"})
+
+    # Regular Bearish: confronta pivot high consecutivi dell'RSI
+    for a, b in zip(ph, ph[1:]):
+        gap = b - a
+        if not (range_lower <= gap <= range_upper):
+            continue
+        rsi_lh = rsi.iloc[b] < rsi.iloc[a]
+        price_hh = weekly["high"].iloc[b] > weekly["high"].iloc[a]
+        if rsi_lh and price_hh:
+            events.append({"date": weekly.index[b], "type": "bear"})
+
+    if not events:
+        return pd.DataFrame(columns=["date", "type"])
+    return pd.DataFrame(events).sort_values("date").reset_index(drop=True)
 
 
 def compute_hash_ribbons(hash_rate: pd.DataFrame) -> pd.DataFrame:
@@ -80,14 +170,15 @@ def merge_onchain(price_idx: pd.DataFrame, onchain: dict) -> pd.DataFrame:
 
 def build_indicators(data: dict) -> pd.DataFrame:
     price_ind = compute_price_indicators(data["price"])
+    price_ind = compute_regime(price_ind)
     hash_ind = compute_hash_ribbons(data["hash_rate"])
     df = price_ind.merge(hash_ind, on="date", how="left")
     df = merge_onchain(df, data)
     return df
 
 
-def snapshot(df: pd.DataFrame) -> dict:
-    """Restituisce gli ultimi valori non-NaN per ciascun indicatore + close."""
+def snapshot(df: pd.DataFrame, divergences: pd.DataFrame | None = None) -> dict:
+    """Restituisce gli ultimi valori non-NaN per ciascun indicatore + close + regime + divergenza."""
     cols = ["close", "pi_cycle", "mayer", "two_year_ma", "rsi_weekly",
             "bmsb", "hash_ribbons", "hr_cross_buy", "mvrv_z", "nupl", "puell"]
     snap = {}
@@ -96,6 +187,23 @@ def snapshot(df: pd.DataFrame) -> dict:
     for c in cols:
         v = df[c].dropna().iloc[-1] if df[c].dropna().size else None
         snap[c] = float(v) if isinstance(v, (int, float, np.floating)) and not pd.isna(v) else (bool(v) if isinstance(v, (bool, np.bool_)) else None)
+
+    # Regime macro (ultimo valore non-NaN)
+    snap["regime"] = str(df["regime"].iloc[-1]) if "regime" in df else "BULL"
+    snap["regime_correction"] = bool(df["regime_correction"].iloc[-1]) if "regime_correction" in df else False
+    snap["sma_200w"] = float(df["sma_200w"].dropna().iloc[-1]) if df["sma_200w"].dropna().size else None
+
+    # Ultima divergenza RSI (entro le ultime 6 settimane = ~42 giorni)
+    snap["last_divergence"] = None
+    snap["last_divergence_date"] = None
+    snap["last_divergence_age_days"] = None
+    if divergences is not None and not divergences.empty:
+        last_div = divergences.iloc[-1]
+        age = (pd.to_datetime(snap["date"]) - pd.to_datetime(last_div["date"])).days
+        if age <= 42:
+            snap["last_divergence"] = str(last_div["type"])
+            snap["last_divergence_date"] = pd.to_datetime(last_div["date"]).date().isoformat()
+            snap["last_divergence_age_days"] = int(age)
     return snap
 
 

@@ -128,6 +128,12 @@ def composite_score(snap: dict) -> dict:
         "signal": signal,
         "target_btc_exposure_pct": round(target_pct, 1),
         "indicators": per_ind,
+        "regime": snap.get("regime", "BULL"),
+        "regime_correction": snap.get("regime_correction", False),
+        "sma_200w": snap.get("sma_200w"),
+        "last_divergence": snap.get("last_divergence"),
+        "last_divergence_date": snap.get("last_divergence_date"),
+        "last_divergence_age_days": snap.get("last_divergence_age_days"),
     }
 
 

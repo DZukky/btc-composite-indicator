@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore")
 
 from .config import DATA_DIR
 from .fetchers import fetch_all, fetch_btc_price_daily, fetch_hash_rate, fetch_bitcoin_data_metric, BITCOIN_DATA_METRICS
-from .indicators import build_indicators, snapshot
+from .indicators import build_indicators, snapshot, compute_rsi_divergences
 from .composite import composite_score, compute_history
 from .reporter import build_dashboard
 from . import telegram_bot
@@ -58,7 +58,8 @@ def main():
         data = fetch_all()
 
     ind_df = build_indicators(data)
-    snap = snapshot(ind_df)
+    divergences = compute_rsi_divergences(data["price"])
+    snap = snapshot(ind_df, divergences=divergences)
     result = composite_score(snap)
 
     print(f"\n  Date              : {result['date']}")
@@ -88,7 +89,7 @@ def main():
     save_history(history)
     print(f"[history] salvato: {HISTORY_FILE}")
 
-    out_html = build_dashboard(result, ind_df, history=history)
+    out_html = build_dashboard(result, ind_df, history=history, divergences=divergences)
     print(f"[dashboard] generata: {out_html}")
 
     json_out = DATA_DIR / "latest_snapshot.json"
