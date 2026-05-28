@@ -4,6 +4,9 @@
   "composite_score": 31.37,
   "red_count": 0,
   "green_count": 1,
+  "fav_count": 6,
+  "neg_count": 0,
+  "neu_count": 3,
   "signal": "ACCUMULATE",
   "target_btc_exposure_pct": 86.6,
   "indicators": {

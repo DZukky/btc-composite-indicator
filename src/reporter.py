@@ -165,9 +165,9 @@ def _indicators_table_human(result: dict) -> str:
 <div class="card">
   <h2 style="margin:0 0 8px;font-size:1.1em">🔍 Cosa dicono i 9 indicatori</h2>
   <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">
-    <b style="color:#16a34a">{result['green_count']} favorevoli</b> all'acquisto ·
-    <b style="color:#dc2626">{result['red_count']} negativi</b> ·
-    {9 - result['green_count'] - result['red_count']} neutri
+    <b style="color:#16a34a">{result.get('fav_count', 0)} favorevoli</b> all'acquisto ·
+    <b style="color:#dc2626">{result.get('neg_count', 0)} negativi</b> ·
+    {result.get('neu_count', 0)} neutri
   </p>
   <table style="width:100%;border-collapse:separate;border-spacing:0 4px">
     <tbody>{''.join(rows)}</tbody>
@@ -546,8 +546,9 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
          background: #f8fafc; color: #0f172a; margin: 0; padding: 24px 16px; }}
   .wrap {{ max-width: 980px; margin: 0 auto; }}
-  h1 {{ margin: 0 0 6px; font-size: 1.4em; }}
-  .meta {{ color: #64748b; margin-bottom: 24px; font-size: 0.95em; }}
+  h1 {{ margin: 0 0 4px; font-size: 1.5em; letter-spacing: -0.01em; }}
+  .tagline {{ color: #334155; font-size: 1.02em; margin-bottom: 6px; }}
+  .meta {{ color: #94a3b8; margin-bottom: 24px; font-size: 0.9em; }}
   .card {{ background: white; border-radius: 12px; padding: 24px;
            box-shadow: 0 1px 4px rgba(15,23,42,0.08); margin-bottom: 20px; }}
   table {{ font-size: 0.95em; }}
@@ -558,7 +559,11 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 </head>
 <body>
 <div class="wrap">
-  <h1>BTC Composite Indicator</h1>
+  <h1 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    BTC Composite Indicator
+    <span style="font-size:0.5em;font-weight:700;letter-spacing:1px;background:#e0e7ff;color:#4338ca;padding:3px 9px;border-radius:6px;vertical-align:middle">BETA</span>
+  </h1>
+  <div class="tagline">Quando accumulare e quando alleggerire Bitcoin, in un colpo d'occhio</div>
   <div class="meta">Aggiornamento del <b>{result['date']}</b> · BTC oggi: <b>{btc_price_str}</b></div>
 
   {hero}

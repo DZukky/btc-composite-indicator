@@ -77,7 +77,7 @@ def format_message(result: dict, dashboard_url: str | None = None) -> str:
         f"<i>(della quota cripto che hai già destinato a BTC, non del patrimonio totale)</i>"
         f"{dca_line}\n\n"
         f"📊 Composite score: {result['composite_score']}/100\n"
-        f"🟢 Favorevoli: {result['green_count']}/9 · 🔴 Negativi: {result['red_count']}/9"
+        f"🟢 Favorevoli: {result.get('fav_count', 0)}/9 · 🔴 Negativi: {result.get('neg_count', 0)}/9"
         f"{div_line}"
     )
 

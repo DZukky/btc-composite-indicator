@@ -104,8 +104,15 @@ def composite_score(snap: dict) -> dict:
 
     composite = weighted_sum / weight_used if weight_used > 0 else 50.0
 
+    # Conteggio "stretto" per i trigger (solo verde/rosso pieno)
     red_count = sum(1 for v in per_ind.values() if v["zone"] == "red")
     green_count = sum(1 for v in per_ind.values() if v["zone"] == "green")
+
+    # Conteggio "display" che corrisponde ai badge mostrati all'utente:
+    # verdi (green+lime)=favorevoli, rossi (red+orange)=negativi, grigio=neutri
+    fav_count = sum(1 for v in per_ind.values() if v["zone"] in ("green", "lime"))
+    neg_count = sum(1 for v in per_ind.values() if v["zone"] in ("red", "orange"))
+    neu_count = sum(1 for v in per_ind.values() if v["zone"] == "neutral")
 
     signal = "HOLD"
     if composite >= COMPOSITE_TRIGGERS["strong_sell"]["score_min"] and red_count >= COMPOSITE_TRIGGERS["strong_sell"]["agree_min"]:
@@ -155,6 +162,9 @@ def composite_score(snap: dict) -> dict:
         "composite_score": round(composite, 2),
         "red_count": red_count,
         "green_count": green_count,
+        "fav_count": fav_count,
+        "neg_count": neg_count,
+        "neu_count": neu_count,
         "signal": signal,
         "target_btc_exposure_pct": round(target_pct, 1),
         "indicators": per_ind,
