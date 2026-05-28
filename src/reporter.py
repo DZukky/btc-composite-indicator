@@ -339,7 +339,7 @@ def _dca_and_bot_row(result: dict) -> str:
 
     bot_box = f"""
 <div class="card" style="margin-bottom:0;flex:1;min-width:280px;border-left:4px solid #64748b">
-  <h2 style="margin:0 0 6px;font-size:1.1em">🤖 Istruzioni per il Bot DCA</h2>
+  <h2 style="margin:0 0 6px;font-size:1.1em">🤖 Istruzioni per i Bot DCA</h2>
   <div style="font-size:0.9em;margin:4px 0">
     Stato bot: <span style="font-weight:700;color:{state_color}">{bot_state}</span>
   </div>
@@ -853,7 +853,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 
   <div class="disclaimer">
     <b>⚠️ Importante.</b> Questo strumento è un cruscotto probabilistico, <b>non un consiglio finanziario</b>.
-    Si basa su 3-4 cicli completi di BTC: la statistica ha intervalli di confidenza ampi.
+    Si basa su appena 3 cicli completi di BTC (top 2017, 2021, 2024-25): la statistica ha intervalli di confidenza ampi.
     Con l'arrivo degli ETF spot dal 2024, alcuni pattern storici potrebbero essere strutturalmente cambiati.
     Usa questi segnali come una <b>seconda opinione</b>, mai come unica fonte di decisione.
     Definisci sempre il tuo limite di rischio prima di agire.
