@@ -365,24 +365,21 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
     h["signal_prev"] = h["signal"].shift(1)
     changes = h[h["signal"] != h["signal_prev"]].dropna(subset=["signal_prev"])
 
-    fig = make_subplots(
-        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
-        row_heights=[0.65, 0.35],
-        subplot_titles=("Prezzo BTC + segnali", "Composite score (0=compra · 100=vendi)"),
-    )
+    # Pannello singolo: solo prezzo BTC + segnali sovrapposti
+    fig = go.Figure()
 
     fig.add_trace(go.Scatter(
         x=h["date"], y=h["btc_close"], name="BTC", mode="lines",
         line=dict(color="#0f172a", width=1.4),
         hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
         showlegend=False,
-    ), row=1, col=1)
+    ))
 
     for sig, color, marker, name in [
-        ("STRONG_BUY",  "#16a34a", "triangle-up",   "🟢 COMPRA FORTE"),
+        ("STRONG_BUY",  "#16a34a", "triangle-up",   "🟢 Compra forte"),
         ("ACCUMULATE",  "#86efac", "circle",        "🌱 Accumula"),
         ("DERISK",      "#fb923c", "circle",        "🟠 Riduci"),
-        ("STRONG_SELL", "#dc2626", "triangle-down", "🔴 VENDI FORTE"),
+        ("STRONG_SELL", "#dc2626", "triangle-down", "🔴 Vendi forte"),
     ]:
         sub = changes[changes["signal"] == sig]
         if len(sub):
@@ -391,13 +388,13 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
                 marker=dict(color=color, size=12, symbol=marker,
                             line=dict(color="white", width=1.5)),
                 hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<br><b>" + sig + "</b><extra></extra>",
-            ), row=1, col=1)
+            ))
 
     # Markers divergenze RSI sul prezzo (piccole X colorate)
     if divergences is not None and not divergences.empty:
         h_idx = h.set_index("date")["btc_close"]
-        for dtype, color, name in [("bull", "#16a34a", "↑ Div. rialzista"),
-                                    ("bear", "#dc2626", "↓ Div. ribassista")]:
+        for dtype, color, name in [("bull", "#16a34a", "✕ Div. rialzista"),
+                                    ("bear", "#dc2626", "✕ Div. ribassista")]:
             sub = divergences[divergences["type"] == dtype]
             xs, ys = [], []
             for _, dv in sub.iterrows():
@@ -409,40 +406,25 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
             if xs:
                 fig.add_trace(go.Scatter(
                     x=xs, y=ys, mode="markers", name=name,
-                    marker=dict(color=color, size=8, symbol="x-thin", line=dict(color=color, width=2)),
+                    marker=dict(color=color, size=9, symbol="x-thin", line=dict(color=color, width=2)),
                     hovertemplate="%{x|%Y-%m-%d}<br>Divergenza " + dtype + "<extra></extra>",
-                ), row=1, col=1)
-
-    fig.add_trace(go.Scatter(
-        x=h["date"], y=h["composite_score"], name="Composite",
-        line=dict(color="#475569", width=1.2),
-        hovertemplate="%{x|%Y-%m-%d}<br>Score: %{y:.0f}<extra></extra>",
-        showlegend=False,
-    ), row=2, col=1)
-    fig.add_hrect(y0=80, y1=100, fillcolor="#dc2626", opacity=0.10, line_width=0, row=2, col=1)
-    fig.add_hrect(y0=0,  y1=20,  fillcolor="#16a34a", opacity=0.10, line_width=0, row=2, col=1)
+                ))
 
     for date_str, label, kind in CYCLE_ANNOTATIONS_HUMAN:
         ts = pd.to_datetime(date_str)
         if ts < h["date"].min() or ts > h["date"].max():
             continue
         col = "#dc2626" if kind == "top" else "#16a34a"
-        fig.add_vline(x=ts, line=dict(color=col, width=1, dash="dot"), row="all", col=1)
+        fig.add_vline(x=ts, line=dict(color=col, width=1, dash="dot"))
 
-    fig.update_yaxes(type="log", title_text="USD (log)", row=1, col=1)
-    fig.update_yaxes(range=[0, 100], title_text="score", row=2, col=1)
-    # titoli subplot più piccoli (evita taglio su mobile)
-    for ann in fig.layout.annotations:
-        ann.font.size = 12
-        ann.xanchor = "left"
-        ann.x = 0
+    fig.update_yaxes(type="log", title_text="USD (log)")
     fig.update_layout(
         template="plotly_white",
-        height=640,
-        margin=dict(l=46, r=16, t=40, b=90),
+        height=460,
+        margin=dict(l=46, r=16, t=10, b=80),
         hovermode="x unified",
-        legend=dict(orientation="h", y=-0.14, x=0.5, xanchor="center",
-                    yanchor="top", font=dict(size=10)),
+        legend=dict(orientation="h", y=-0.16, x=0.5, xanchor="center",
+                    yanchor="top", font=dict(size=11)),
     )
     return fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="chart-history",
                        config={"responsive": True, "displayModeBar": False},
