@@ -330,7 +330,7 @@ def _dca_and_bot_row(result: dict) -> str:
 
     dca_box = f"""
 <div class="card" style="background:{d['bg']};border-left:4px solid {d['border']};margin-bottom:0;flex:1;min-width:280px">
-  <h2 style="margin:0 0 6px;font-size:1.1em;color:{d['color']}">💧 Strategia di accumulo (DCA)</h2>
+  <h2 style="margin:0 0 6px;font-size:1.1em;color:{d['color']}">₿ Strategia di accumulo (DCA)</h2>
   <div style="font-size:1.5em;font-weight:700;color:{d['color']};margin:4px 0">{d['emoji']} DCA {dca['level']}</div>
   <div style="margin:2px 0 8px"><span style="display:inline-block;white-space:nowrap;font-size:0.78em;font-weight:600;background:{d['border']};color:white;padding:4px 12px;border-radius:12px">{d['tag']}</span></div>
   <div style="color:#475569;font-size:0.92em;line-height:1.5">{dca['reason']}</div>
