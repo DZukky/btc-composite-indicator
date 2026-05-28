@@ -193,6 +193,14 @@ def snapshot(df: pd.DataFrame, divergences: pd.DataFrame | None = None) -> dict:
     snap["regime_correction"] = bool(df["regime_correction"].iloc[-1]) if "regime_correction" in df else False
     snap["sma_200w"] = float(df["sma_200w"].dropna().iloc[-1]) if df["sma_200w"].dropna().size else None
 
+    # 200-day SMA + distanza % del prezzo (riferimento medio termine per il DCA)
+    dma200 = df["dma_200"].dropna().iloc[-1] if df["dma_200"].dropna().size else None
+    snap["sma_200d"] = float(dma200) if dma200 is not None and not pd.isna(dma200) else None
+    if snap["sma_200d"] and snap.get("close"):
+        snap["dist_200d_pct"] = round((snap["close"] - snap["sma_200d"]) / snap["sma_200d"] * 100, 1)
+    else:
+        snap["dist_200d_pct"] = None
+
     # Ultima divergenza RSI (entro le ultime 6 settimane = ~42 giorni)
     snap["last_divergence"] = None
     snap["last_divergence_date"] = None

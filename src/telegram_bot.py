@@ -64,13 +64,18 @@ def format_message(result: dict, dashboard_url: str | None = None) -> str:
     elif div == "bear":
         div_line = f"\n📉 <b>Divergenza RSI ribassista</b> ({result.get('last_divergence_age_days','?')}g fa) — attenzione, possibile inversione giù"
 
+    dca = result.get("dca") or {}
+    dca_emoji = {"AGGRESSIVO": "🟢", "REGOLARE": "🔵", "PRUDENTE": "🟠"}.get(dca.get("level"), "🔵")
+    dca_line = f"\n💧 DCA: <b>{dca.get('level', 'REGOLARE')}</b> {dca_emoji}" if dca else ""
+
     msg = (
         f"<b>📅 BTC Composite — {result['date']}</b>\n"
         f"BTC oggi: <b>{btc}</b> · {regime_line}\n\n"
         f"{emoji} <b>{label}</b>\n"
         f"<i>{action}</i>\n\n"
         f"💰 <b>Allocazione BTC suggerita: {result['target_btc_exposure_pct']}%</b>\n"
-        f"<i>(della quota cripto che hai già destinato a BTC, non del patrimonio totale)</i>\n\n"
+        f"<i>(della quota cripto che hai già destinato a BTC, non del patrimonio totale)</i>"
+        f"{dca_line}\n\n"
         f"📊 Composite score: {result['composite_score']}/100\n"
         f"🟢 Favorevoli: {result['green_count']}/9 · 🔴 Negativi: {result['red_count']}/9"
         f"{div_line}"

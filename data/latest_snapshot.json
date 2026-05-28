@@ -65,6 +65,12 @@
   "regime": "BULL",
   "regime_correction": true,
   "sma_200w": 61604.15854999999,
+  "sma_200d": 79984.8589,
+  "dist_200d_pct": -8.8,
+  "dca": {
+    "level": "AGGRESSIVO",
+    "reason": "BTC \u00e8 economico su pi\u00f9 metriche (composite basso): fase di sconto, accumulo accelerato. Il prezzo \u00e8 9% sotto la media a 200 giorni."
+  },
   "last_divergence": null,
   "last_divergence_date": null,
   "last_divergence_age_days": null

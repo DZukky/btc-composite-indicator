@@ -119,6 +119,22 @@ def composite_score(snap: dict) -> dict:
 
     target_pct = 100.0 / (1 + math.exp((composite - 50) / 10.0))
 
+    # Consiglio DCA derivato dal composite (riusa i 9 indicatori, non solo la 200-SMA)
+    dist200 = snap.get("dist_200d_pct")
+    dist_txt = ""
+    if dist200 is not None:
+        verso = "sopra" if dist200 >= 0 else "sotto"
+        dist_txt = f" Il prezzo è {abs(dist200):.0f}% {verso} la media a 200 giorni."
+    if composite <= 35:
+        dca = {"level": "AGGRESSIVO",
+               "reason": "BTC è economico su più metriche (composite basso): fase di sconto, accumulo accelerato." + dist_txt}
+    elif composite >= 65:
+        dca = {"level": "PRUDENTE",
+               "reason": "BTC è esteso/caro su più metriche (composite alto): rallenta gli acquisti o riduci." + dist_txt}
+    else:
+        dca = {"level": "REGOLARE",
+               "reason": "Mercato in equilibrio: accumulo standard, quote costanti." + dist_txt}
+
     return {
         "date": snap["date"],
         "btc_close": snap.get("close"),
@@ -131,6 +147,9 @@ def composite_score(snap: dict) -> dict:
         "regime": snap.get("regime", "BULL"),
         "regime_correction": snap.get("regime_correction", False),
         "sma_200w": snap.get("sma_200w"),
+        "sma_200d": snap.get("sma_200d"),
+        "dist_200d_pct": snap.get("dist_200d_pct"),
+        "dca": dca,
         "last_divergence": snap.get("last_divergence"),
         "last_divergence_date": snap.get("last_divergence_date"),
         "last_divergence_age_days": snap.get("last_divergence_age_days"),
