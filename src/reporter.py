@@ -539,42 +539,70 @@ def _history_with_signals(history: pd.DataFrame, divergences: pd.DataFrame | Non
                        default_width="100%")
 
 
-def _recent_signal_changes(history: pd.DataFrame, n: int = 8) -> str:
+def _signal_outcome(curr: str, price_at: float, price_after: float | None):
+    """Esito di un cambio segnale a 90gg. Ritorna (html_cell)."""
+    if price_after is None:
+        return '<span style="color:#94a3b8">⏳ in corso</span>'
+    if curr == "HOLD":
+        return '<span style="color:#94a3b8">—</span>'
+    chg = (price_after - price_at) / price_at * 100
+    is_buy = curr in ("STRONG_BUY", "ACCUMULATE")
+    correct = (chg > 0) if is_buy else (chg < 0)
+    if correct:
+        return f'<span style="color:#16a34a;font-weight:600">✅ {chg:+.0f}%</span>'
+    return f'<span style="color:#dc2626;font-weight:600">❌ {chg:+.0f}%</span>'
+
+
+def _recent_signal_changes(history: pd.DataFrame, n: int = 8, horizon_days: int = 90) -> str:
     if history is None or history.empty:
         return ""
     h = history.copy().sort_values("date").reset_index(drop=True)
     h["signal_prev"] = h["signal"].shift(1)
-    changes = h[h["signal"] != h["signal_prev"]].dropna(subset=["signal_prev"]).tail(n).iloc[::-1]
+    price_by_date = h.set_index("date")["btc_close"]
+    last_date = h["date"].max()
+
+    all_changes = h[h["signal"] != h["signal_prev"]].dropna(subset=["signal_prev"])
+    changes = all_changes.tail(n).iloc[::-1]
     if not len(changes):
         return ""
 
     rows = []
     for _, r in changes.iterrows():
-        prev = r["signal_prev"]
-        curr = r["signal"]
+        prev, curr = r["signal_prev"], r["signal"]
         d_prev = SIGNAL_DETAIL.get(prev, SIGNAL_DETAIL["HOLD"])
         d_curr = SIGNAL_DETAIL.get(curr, SIGNAL_DETAIL["HOLD"])
         prev_it = SIGNAL_SHORT_IT.get(prev, prev)
         curr_it = SIGNAL_SHORT_IT.get(curr, curr)
+
+        # prezzo a +horizon giorni (None se nel futuro)
+        target_date = r["date"] + pd.Timedelta(days=horizon_days)
+        price_after = None
+        if target_date <= last_date:
+            idx = price_by_date.index.get_indexer([target_date], method="nearest")[0]
+            price_after = float(price_by_date.iloc[idx])
+        outcome = _signal_outcome(curr, float(r["btc_close"]), price_after)
+
         rows.append(f"""<tr>
           <td style="padding:10px 12px;color:#475569">{r['date'].date()}</td>
           <td style="padding:10px 12px;font-family:monospace">${r['btc_close']:,.0f}</td>
-          <td style="padding:10px 12px;color:{d_prev['color']}">{d_prev['emoji']} {prev_it}</td>
-          <td style="padding:10px 12px;color:#475569">→</td>
           <td style="padding:10px 12px;font-weight:600;color:{d_curr['color']}">{d_curr['emoji']} {curr_it}</td>
+          <td style="padding:10px 12px">{outcome}</td>
         </tr>""")
 
     return f"""
 <div class="card">
-  <h2 style="margin:0 0 8px;font-size:1.1em">📜 Ultimi cambi di segnale</h2>
-  <p style="margin:0 0 12px;color:#64748b;font-size:0.95em">Ogni volta che il modello cambia idea, lo trovi qui. Utile per vedere quanto spesso e in che circostanze.</p>
-  <div class="tbl-scroll"><table style="width:100%;border-collapse:collapse;min-width:460px">
+  <h2 style="margin:0 0 6px;font-size:1.1em">📜 Ultimi cambi di segnale</h2>
+  <p style="margin:0 0 12px;color:#64748b;font-size:0.92em">
+    Ogni volta che il modello cambia idea, lo trovi qui. La colonna <b>Esito a 90gg</b> mostra
+    se la mossa si è rivelata corretta (prezzo andato nella direzione attesa entro 3 mesi).
+    È una misura <i>indicativa</i>: dipende dall'orizzonte scelto.
+  </p>
+  <div class="tbl-scroll"><table style="width:100%;border-collapse:collapse;min-width:420px">
     <thead><tr style="background:#f1f5f9;color:#475569;font-size:0.85em;text-transform:uppercase;letter-spacing:1px">
       <th style="padding:8px 12px;text-align:left">Data</th>
       <th style="padding:8px 12px;text-align:left">BTC</th>
-      <th style="padding:8px 12px;text-align:left">Prima</th>
-      <th style="padding:8px 12px"></th>
-      <th style="padding:8px 12px;text-align:left">Adesso</th>
+      <th style="padding:8px 12px;text-align:left">Nuovo segnale</th>
+      <th style="padding:8px 12px;text-align:left">Esito a 90gg</th>
     </tr></thead>
     <tbody>{''.join(rows)}</tbody>
   </table></div>
@@ -586,9 +614,48 @@ def _signal_distribution(history: pd.DataFrame) -> str:
     """Quanto tempo abbiamo passato in ciascuno stato."""
     if history is None or history.empty:
         return ""
-    counts = history["signal"].value_counts()
+    h = history.copy().sort_values("date").reset_index(drop=True)
+    counts = h["signal"].value_counts()
     total = counts.sum()
     order = ["STRONG_BUY", "ACCUMULATE", "HOLD", "DERISK", "STRONG_SELL"]
+
+    # Fase corrente + da quanti giorni dura
+    current = h["signal"].iloc[-1]
+    streak = 1
+    for s in h["signal"].iloc[::-1][1:]:
+        if s == current:
+            streak += 1
+        else:
+            break
+
+    # Durata media storica delle fasi dello stesso tipo (run consecutivi)
+    runs = []
+    run_sig, run_len = h["signal"].iloc[0], 1
+    for s in h["signal"].iloc[1:]:
+        if s == run_sig:
+            run_len += 1
+        else:
+            runs.append((run_sig, run_len))
+            run_sig, run_len = s, 1
+    runs.append((run_sig, run_len))
+    same = [ln for sg, ln in runs if sg == current]
+    avg_dur = round(sum(same) / len(same)) if same else streak
+
+    d_cur = SIGNAL_DETAIL.get(current, SIGNAL_DETAIL["HOLD"])
+    cur_it = SIGNAL_SHORT_IT.get(current, current)
+    if streak > avg_dur:
+        maturity = f"fase <b>matura</b> (oltre la media di {avg_dur} giorni)"
+    elif streak >= avg_dur * 0.6:
+        maturity = f"fase <b>in corso</b> (media storica ~{avg_dur} giorni)"
+    else:
+        maturity = f"fase <b>recente</b> (media storica ~{avg_dur} giorni)"
+
+    current_box = f"""
+<div style="background:{d_cur['bg']};border-left:4px solid {d_cur['border']};border-radius:8px;padding:14px 16px;margin-bottom:18px">
+  <div style="font-size:0.78em;text-transform:uppercase;letter-spacing:1px;color:{d_cur['color']}">Dove sei oggi</div>
+  <div style="font-size:1.15em;font-weight:700;color:{d_cur['color']};margin:2px 0">{d_cur['emoji']} {cur_it} — da {streak} giorni</div>
+  <div style="font-size:0.88em;color:#475569">{maturity}</div>
+</div>"""
 
     bars = []
     for sig in order:
@@ -596,13 +663,16 @@ def _signal_distribution(history: pd.DataFrame) -> str:
         pct = 100 * n / total if total else 0
         d = SIGNAL_DETAIL.get(sig, SIGNAL_DETAIL["HOLD"])
         sig_it = SIGNAL_SHORT_IT.get(sig, sig)
+        is_cur = sig == current
+        name_style = f"color:{d['color']};font-weight:700" if is_cur else f"color:{d['color']};font-weight:600"
+        dot = " 📍" if is_cur else ""
         bars.append(f"""
 <div style="margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;font-size:0.9em;margin-bottom:4px">
-    <span style="color:{d['color']};font-weight:600">{d['emoji']} {sig_it}</span>
+    <span style="{name_style}">{d['emoji']} {sig_it}{dot}</span>
     <span style="color:#64748b">{n} giorni · {pct:.1f}%</span>
   </div>
-  <div style="height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden">
+  <div style="height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden{';outline:2px solid '+d['border'] if is_cur else ''}">
     <div style="height:100%;width:{pct:.1f}%;background:{d['border']}"></div>
   </div>
 </div>""")
@@ -610,7 +680,8 @@ def _signal_distribution(history: pd.DataFrame) -> str:
     return f"""
 <div class="card">
   <h2 style="margin:0 0 8px;font-size:1.1em">📊 Distribuzione storica dei segnali</h2>
-  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">Ripartizione percentuale dei segnali del modello sugli ultimi {total} giorni (dal {history['date'].min().date()}). I top sono rari, l'accumulo è frequente.</p>
+  {current_box}
+  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">Ripartizione percentuale dei segnali del modello sugli ultimi {total} giorni (dal {h['date'].min().date()}). I top sono rari, l'accumulo è frequente.</p>
   {''.join(bars)}
 </div>
 """
