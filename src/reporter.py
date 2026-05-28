@@ -62,12 +62,12 @@ SIGNAL_DETAIL = {
 
 
 ZONE_TO_SIMPLE = {
-    "red":     ("🔴", "Negativo",  "#dc2626"),
-    "orange":  ("🟠", "Cauto",     "#f97316"),
-    "neutral": ("⚪", "Neutro",    "#94a3b8"),
-    "lime":    ("🟢", "Positivo",  "#22c55e"),
-    "green":   ("🟢", "Favorevole","#16a34a"),
-    "n/a":     ("❔", "n/d",       "#cbd5e1"),
+    "red":     ("🔴", "Molto negativo", "#dc2626"),
+    "orange":  ("🟠", "Negativo",       "#f97316"),
+    "neutral": ("⚪", "Neutro",         "#94a3b8"),
+    "lime":    ("🟢", "Positivo",       "#22c55e"),
+    "green":   ("🟢", "Molto positivo", "#16a34a"),
+    "n/a":     ("❔", "n/d",            "#cbd5e1"),
 }
 
 
