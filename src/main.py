@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 from .config import DATA_DIR
 from .fetchers import fetch_all, fetch_btc_price_daily, fetch_hash_rate, fetch_bitcoin_data_metric, BITCOIN_DATA_METRICS
 from .indicators import build_indicators, snapshot, compute_rsi_divergences
-from .composite import composite_score, compute_history
+from .composite import composite_score, compute_history, apply_reserve
 from .reporter import build_dashboard
 from . import telegram_bot
 
@@ -31,7 +31,9 @@ HISTORY_FILE = DATA_DIR / "composite_history.csv"
 def load_history() -> pd.DataFrame:
     if HISTORY_FILE.exists():
         return pd.read_csv(HISTORY_FILE, parse_dates=["date"])
-    return pd.DataFrame(columns=["date", "btc_close", "composite_score", "signal", "target_btc_exposure_pct"])
+    return pd.DataFrame(columns=["date", "btc_close", "composite_score", "signal",
+                                 "target_btc_exposure_pct", "dca_multiplier",
+                                 "dca_buy_factor", "reserve_balance"])
 
 
 def save_history(history: pd.DataFrame) -> None:
@@ -67,12 +69,22 @@ def main():
         history = pd.read_csv(HISTORY_FILE, parse_dates=["date"])
         prev_signal = str(history["signal"].iloc[-1]) if len(history) else None
         result = composite_score(snap, prev_signal=prev_signal)
+        # salvadanaio: riprendi l'ultimo saldo noto e applica il giorno di oggi
+        prev_reserve = (float(history["reserve_balance"].iloc[-1])
+                        if "reserve_balance" in history.columns and len(history)
+                        and pd.notna(history["reserve_balance"].iloc[-1]) else 0.0)
+        buy_factor, reserve = apply_reserve(result["dca_multiplier"], prev_reserve)
+        result["dca_buy_factor"] = buy_factor
+        result["reserve_balance"] = reserve
         today_row = pd.DataFrame([{
             "date": pd.to_datetime(result["date"]),
             "btc_close": result["btc_close"],
             "composite_score": result["composite_score"],
             "signal": result["signal"],
             "target_btc_exposure_pct": result["target_btc_exposure_pct"],
+            "dca_multiplier": result["dca_multiplier"],
+            "dca_buy_factor": buy_factor,
+            "reserve_balance": reserve,
             "red_count": result["red_count"],
             "green_count": result["green_count"],
         }])
@@ -82,6 +94,12 @@ def main():
         history = compute_history(ind_df)
         prev_signal = str(history["signal"].iloc[-2]) if len(history) >= 2 else None
         result = composite_score(snap, prev_signal=prev_signal)
+        # Riserva: parti dal saldo del giorno PRIMA e applica il moltiplicatore di OGGI
+        # (preso da snap → coerente con il composite mostrato in result).
+        prev_reserve = float(history["reserve_balance"].iloc[-2]) if len(history) >= 2 else 0.0
+        buy_factor, reserve = apply_reserve(result["dca_multiplier"], prev_reserve)
+        result["dca_buy_factor"] = buy_factor
+        result["reserve_balance"] = reserve
         print(f"  → {len(history)} giorni, da {history['date'].min().date()} a {history['date'].max().date()}")
 
     # News + Fear&Greed (server-side, contesto esterno). Non far mai fallire la pipeline.
@@ -106,6 +124,8 @@ def main():
     print(f"  Composite score   : {result['composite_score']}/100")
     print(f"  Signal            : {result['signal']}")
     print(f"  Target BTC exp.   : {result['target_btc_exposure_pct']}%")
+    print(f"  DCA acquisto      : {result['dca_multiplier']}× la cifra base · "
+          f"salvadanaio {result.get('reserve_balance', 0)}×")
     print(f"  Red / Green zones : {result['red_count']} / {result['green_count']} (su 9)")
 
     save_history(history)

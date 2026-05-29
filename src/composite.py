@@ -20,7 +20,27 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from .config import INDICATOR_WEIGHTS, INDICATOR_THRESHOLDS, COMPOSITE_TRIGGERS
+from .config import (INDICATOR_WEIGHTS, INDICATOR_THRESHOLDS, COMPOSITE_TRIGGERS,
+                     DCA_MULT_MIN, DCA_MULT_MAX, DCA_RESERVE_CAP)
+
+
+def apply_reserve(mult: float, reserve: float, cap: float = DCA_RESERVE_CAP) -> tuple[float, float]:
+    """Flusso DCA. L'acquisto consigliato è SEMPRE il moltiplicatore del mercato (`mult`):
+    BTC conveniente → >1, BTC caro → <1. Coerente al 100% col segnale.
+
+    Il salvadanaio è un dato INFORMATIVO (non limita l'acquisto mostrato):
+      - mult < 1 (BTC caro):        accantoni `(1 - mult)` → la riserva cresce (con tetto `cap`)
+      - mult > 1 (BTC conveniente): l'extra `(mult - 1)` viene finanziato prima dalla riserva
+                                    (prelievo = min(extra, reserve)), il resto da liquidità fresca.
+
+    Ritorna (acquisto_consigliato, nuova_riserva), entrambi in multipli di cifra base.
+    """
+    if mult <= 1.0:
+        reserve = min(cap, reserve + (1.0 - mult))
+    else:
+        draw = min(mult - 1.0, reserve)
+        reserve -= draw
+    return round(mult, 3), round(reserve, 3)
 
 
 def _ramp(val: float, points: list[tuple[float, float]]) -> float:
@@ -146,6 +166,13 @@ def composite_score(snap: dict, prev_signal: str | None = None) -> dict:
 
     target_pct = 100.0 / (1 + math.exp((composite - 50) / 10.0))
 
+    # Moltiplicatore di acquisto DCA (flusso). Stessa curva sigmoide, compressa nella
+    # fascia [MIN, MAX] centrata su 1.0 a composite 50: BTC conveniente → >1, caro → <1.
+    _center = (DCA_MULT_MIN + DCA_MULT_MAX) / 2.0
+    _half = (DCA_MULT_MAX - DCA_MULT_MIN) / 2.0
+    dca_multiplier = _center + (target_pct / 50.0 - 1.0) * _half
+    dca_multiplier = max(DCA_MULT_MIN, min(DCA_MULT_MAX, dca_multiplier))
+
     # Consiglio DCA derivato dal composite (riusa i 9 indicatori, non solo la 200-SMA)
     dist200 = snap.get("dist_200d_pct")
     dist_txt = ""
@@ -187,6 +214,7 @@ def composite_score(snap: dict, prev_signal: str | None = None) -> dict:
         "neu_count": neu_count,
         "signal": signal,
         "target_btc_exposure_pct": round(target_pct, 1),
+        "dca_multiplier": round(dca_multiplier, 3),
         "indicators": per_ind,
         "regime": snap.get("regime", "BULL"),
         "regime_correction": snap.get("regime_correction", False),
@@ -214,6 +242,7 @@ def compute_history(ind_df) -> "pd.DataFrame":
 
     out = []
     prev_signal = None  # stato per l'isteresi, si propaga giorno per giorno
+    reserve = 0.0       # salvadanaio DCA (unità di cifra base), si propaga sequenzialmente
     for _, r in ind_df.iterrows():
         snap = {"date": r["date"].date().isoformat()}
         non_na = 0
@@ -235,12 +264,16 @@ def compute_history(ind_df) -> "pd.DataFrame":
 
         res = composite_score(snap, prev_signal=prev_signal)
         prev_signal = res["signal"]  # isteresi: lo stato si propaga al giorno dopo
+        buy_factor, reserve = apply_reserve(res["dca_multiplier"], reserve)
         out.append({
             "date":                 pd.to_datetime(res["date"]),
             "btc_close":            res["btc_close"],
             "composite_score":      res["composite_score"],
             "signal":               res["signal"],
             "target_btc_exposure_pct": res["target_btc_exposure_pct"],
+            "dca_multiplier":       res["dca_multiplier"],
+            "dca_buy_factor":       buy_factor,
+            "reserve_balance":      reserve,
             "red_count":            res["red_count"],
             "green_count":          res["green_count"],
         })

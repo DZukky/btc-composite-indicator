@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 import requests
 
+from .config import DCA_BASE_AMOUNT
+
 
 SIGNAL_EMOJI = {
     "STRONG_SELL": "🔴",
@@ -19,20 +21,21 @@ SIGNAL_EMOJI = {
     "STRONG_BUY":  "💚",
 }
 
+# Intensità di acquisto (modello puro accumulo, mai vendere)
 SIGNAL_LABEL_IT = {
-    "STRONG_SELL": "ALLEGGERISCI FORTEMENTE",
-    "DERISK":      "INIZIA A RIDURRE",
-    "HOLD":        "MANTIENI POSIZIONE",
-    "ACCUMULATE":  "ACCUMULA",
-    "STRONG_BUY":  "OCCASIONE D'INGRESSO",
+    "STRONG_SELL": "COMPRA AL MINIMO",
+    "DERISK":      "COMPRA DI MENO",
+    "HOLD":        "COMPRA NORMALE",
+    "ACCUMULATE":  "COMPRA DI PIÙ",
+    "STRONG_BUY":  "COMPRA AL MASSIMO",
 }
 
 SIGNAL_ACTION_IT = {
-    "STRONG_SELL": "Riduci immediatamente l'esposizione BTC. Storicamente seguono drawdown del 50-85%.",
-    "DERISK":      "Alleggerisci progressivamente. Più indicatori entrano in zona di surriscaldamento.",
-    "HOLD":        "Niente di particolare da fare. Trend follow.",
-    "ACCUMULATE":  "Compra gradualmente, niente fretta. Zona favorevole.",
-    "STRONG_BUY":  "Momento storicamente favorevole all'accumulo aggressivo.",
+    "STRONG_SELL": "BTC è molto caro: compra il minimo (o fermati) e accantona. Niente vendite — i ribassi serviranno per ricomprare più giù.",
+    "DERISK":      "BTC è caretto: rallenta gli acquisti e metti da parte la differenza per i giorni migliori.",
+    "HOLD":        "Mercato in equilibrio: compra la tua cifra abituale, senza forzare.",
+    "ACCUMULATE":  "Zona favorevole: compra più della tua cifra abituale, con calma.",
+    "STRONG_BUY":  "Livelli storicamente molto convenienti: compra in modo deciso.",
 }
 
 
@@ -96,16 +99,26 @@ def format_message(result: dict, dashboard_url: str | None = None) -> str:
     dca_level = dca.get("level", "DI ROUTINE")
     dca_em = DCA_EMOJI.get(dca_level, "🔵")
     action = SIGNAL_ACTION_IT.get(result["signal"], "")
-    target = result["target_btc_exposure_pct"]
+
+    # Modello a flusso: moltiplicatore sull'importo di acquisto abituale + salvadanaio
+    mult = float(result.get("dca_multiplier", 1.0))
+    buy = float(result.get("dca_buy_factor", mult))
+    amount = round(DCA_BASE_AMOUNT * buy)
+    reserve = float(result.get("reserve_balance", 0.0))
+    reserve_line = ""
+    if reserve >= 0.05:
+        reserve_line = (f"🐷 Salvadanaio: hai messo da parte <b>{reserve:.1f}×</b> la cifra base "
+                        f"per i giorni più convenienti.\n")
 
     msg = (
         f"<b>☕️ Caffè BTC — {result['date']}</b>\n"
         f"💵 Prezzo: <b>{btc}</b>  |  {regime}\n"
         f"\n"
         f"🎯 <b>IL FOCUS DEL GIORNO</b>\n"
-        f"Stato del bot: <b>DCA {dca_level}</b> {dca_em}\n"
-        f"{action} Oggi l'allocazione suggerita sulla tua quota BTC è <b>{target}%</b> "
-        f"<i>(il resto in stable/cash)</i>.\n"
+        f"{action}\n"
+        f"👉 Oggi compra ≈ <b>{buy:.2f}×</b> la tua cifra abituale "
+        f"<i>(es. €{DCA_BASE_AMOUNT} → ~€{amount})</i>.\n"
+        f"{reserve_line}"
         f"\n"
         f"📊 <b>COSA SUCCEDE DIETRO LE QUINTE?</b>\n"
         f"Score strategico: <b>{result['composite_score']}/100</b> "

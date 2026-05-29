@@ -42,6 +42,18 @@ COMPOSITE_TRIGGERS = {
     "strong_buy":  {"score_max": 20, "agree_min": 4},
 }
 
+# --- DCA a flusso ---------------------------------------------------------
+# Il modello è puro accumulo: non si vende mai, si modula solo QUANTO comprare.
+# Il composite diventa un moltiplicatore sull'importo di acquisto abituale:
+#   composite basso (BTC conveniente) → moltiplicatore > 1 (compra di più)
+#   composite alto  (BTC caro)        → moltiplicatore < 1 (compra di meno)
+# Curva derivata dalla sigmoide esistente, ma compressa nella fascia [MIN, MAX]
+# centrata su 1.0 a composite 50 (scelta "dolce": vicino a 50/100/130-140€).
+DCA_BASE_AMOUNT = 100     # cifra base illustrativa (€) per gli esempi in dashboard/Telegram
+DCA_MULT_MIN = 0.6        # BTC molto caro → compra ~0,6× la cifra base (e accantona la differenza)
+DCA_MULT_MAX = 1.4        # BTC molto conveniente → compra ~1,4× la cifra base
+DCA_RESERVE_CAP = 30.0    # tetto al salvadanaio (multipli di cifra base): max "polvere da sparo" realistica
+
 EMAIL_TO = "info@ghostly.biz"
 EMAIL_FROM = "btc-tool@resend.dev"
 EMAIL_SUBJECT_PREFIX = "[BTC Composite]"
