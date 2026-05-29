@@ -8,15 +8,38 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from .config import DASHBOARD_DIR, INDICATOR_WEIGHTS
+from .config import DASHBOARD_DIR, INDICATOR_WEIGHTS, DCA_BASE_AMOUNT
 from .composite import SIGNAL_DESCRIPTIONS
+
+
+def _buy_numbers(result: dict):
+    """Valori DISPLAY per la quota d'acquisto del giorno (modello a flusso DCA).
+
+    L'arrotondamento è solo sulla presentazione (step 0,1×): riduce la falsa
+    precisione e lo sfarfallio quotidiano. Il calcolo della riserva resta a piena
+    precisione a monte (composite.py). %, € e × derivano TUTTI dal valore arrotondato,
+    così sono sempre coerenti tra loro.
+
+    Ritorna (fattore_display, pct_str, importo_eur, riserva_display):
+      - fattore_display: moltiplicatore arrotondato a 0,1× (es. 1.3)
+      - pct_str: scostamento dal Capitale Base ("+30%", "−30%", "in linea")
+      - importo_eur: esempio in € sul Capitale Base illustrativo (derivato dall'arrotondato)
+      - riserva_display: salvadanaio in multipli di Capitale Base, arrotondato a 0,1×
+    """
+    raw = float(result.get("dca_buy_factor", result.get("dca_multiplier", 1.0)))
+    buy = round(raw, 1)
+    amount = round(DCA_BASE_AMOUNT * buy)
+    delta = round((buy - 1.0) * 100)
+    pct = f"+{delta}%" if delta > 0 else (f"−{abs(delta)}%" if delta < 0 else "in linea")
+    reserve = round(float(result.get("reserve_balance", 0.0)), 1)
+    return buy, pct, amount, reserve
 
 
 SIGNAL_DETAIL = {
     "STRONG_BUY": {
         "emoji": "💚",
-        "label": "OCCASIONE D'INGRESSO",
-        "action": "Il modello dice che è il momento giusto per comprare aggressivamente.",
+        "label": "ACCUMULO AGGRESSIVO",
+        "action": "Fase di forte sottovalutazione: le metriche indicano una quotazione ben al di sotto del valore intrinseco stimato. Si consiglia di massimizzare l'intensità di accumulo sul Capitale Base.",
         "rationale": "Storicamente, quando il composite è in questa zona BTC ha registrato rally del 300-700% nei 12-24 mesi successivi (bottom 2018, 2020, 2022).",
         "color":   "#15803d",
         "bg":      "#dcfce7",
@@ -24,36 +47,36 @@ SIGNAL_DETAIL = {
     },
     "ACCUMULATE": {
         "emoji": "🌱",
-        "label": "ACCUMULA GRADUALMENTE",
-        "action": "Il modello dice che siamo in una zona favorevole all'acquisto, ma senza fretta.",
-        "rationale": "Diversi indicatori sono in territorio positivo. Comprare a scaglioni in queste fasi ha pagato storicamente.",
+        "label": "ACCUMULO INCREMENTALE",
+        "action": "Fase favorevole all'incremento delle posizioni: le metriche indicano una quotazione inferiore al valore intrinseco stimato. Si consiglia un accumulo frazionato superiore alla quota standard.",
+        "rationale": "Diversi indicatori sono in territorio positivo. Incrementare l'accumulo in queste fasi ha pagato storicamente.",
         "color":   "#166534",
         "bg":      "#d1fae5",
         "border":  "#22c55e",
     },
     "HOLD": {
         "emoji": "⚖️",
-        "label": "MANTIENI POSIZIONE",
-        "action": "Il modello è neutrale. Niente di particolare da fare oggi.",
-        "rationale": "Il mercato non è né sopravvalutato né sottovalutato in modo significativo. Trend follow.",
+        "label": "ACCUMULO STANDARD",
+        "action": "Quotazione sostanzialmente in linea con il valore intrinseco stimato: si mantiene l'accumulo alla quota standard, senza variazioni d'intensità.",
+        "rationale": "Il mercato non è né sopravvalutato né sottovalutato in modo significativo. Accumulo di routine.",
         "color":   "#475569",
         "bg":      "#f1f5f9",
         "border":  "#94a3b8",
     },
     "DERISK": {
         "emoji": "🟠",
-        "label": "INIZIA A RIDURRE",
-        "action": "Il modello suggerisce di alleggerire progressivamente l'esposizione BTC.",
-        "rationale": "Più indicatori stanno entrando in zona di surriscaldamento. Storicamente, top di ciclo si avvicinano.",
+        "label": "ACCUMULO RIDOTTO",
+        "action": "Quotazione superiore al valore intrinseco stimato: si riduce l'intensità dell'accumulo e si accantona la quota non investita nella riserva di capitale. L'accumulo prosegue, senza liquidazioni.",
+        "rationale": "Più indicatori stanno entrando in zona di surriscaldamento: conviene moderare gli ingressi e costituire riserva per le fasi successive.",
         "color":   "#9a3412",
         "bg":      "#ffedd5",
         "border":  "#f97316",
     },
     "STRONG_SELL": {
         "emoji": "🔴",
-        "label": "ALLEGGERISCI FORTEMENTE",
-        "action": "Il modello dice che è il momento di derisk massimo.",
-        "rationale": "Quattro o più indicatori sono in zona di top storico. I cicli passati (2017, aprile 2021) hanno avuto drawdown del 50-85% subito dopo.",
+        "label": "ACCUMULO MINIMO",
+        "action": "Fase di forte sopravvalutazione: si porta l'accumulo all'intensità minima e si accantona capitale. Nessuna liquidazione delle posizioni — i ribassi successivi alimenteranno gli ingressi futuri.",
+        "rationale": "Quattro o più indicatori sono in zona di top storico. I cicli passati (2017, aprile 2021) hanno avuto cali del 50-85% subito dopo: la riserva costituita ora finanzierà gli accumuli su quei ribassi.",
         "color":   "#991b1b",
         "bg":      "#fee2e2",
         "border":  "#dc2626",
@@ -61,14 +84,13 @@ SIGNAL_DETAIL = {
 }
 
 
-# Etichette brevi dei segnali in italiano, allineate al termometro
-# (Compra forte / Accumula / Mantieni / Riduci / Vendi forte)
+# Etichette brevi dei 5 livelli = intensità di accumulo (modello puro accumulo, mai vendere)
 SIGNAL_SHORT_IT = {
-    "STRONG_BUY":  "Compra forte",
-    "ACCUMULATE":  "Accumula",
-    "HOLD":        "Mantieni",
-    "DERISK":      "Riduci",
-    "STRONG_SELL": "Vendi forte",
+    "STRONG_BUY":  "Accumulo aggressivo",
+    "ACCUMULATE":  "Accumulo incrementale",
+    "HOLD":        "Accumulo standard",
+    "DERISK":      "Accumulo ridotto",
+    "STRONG_SELL": "Accumulo minimo",
 }
 
 
@@ -95,28 +117,44 @@ INDICATOR_HUMAN = {
 }
 
 
-def _hero_banner(result: dict) -> str:
+def _hero_banner(result: dict, prev_buy: float | None = None) -> str:
     """Banner gigante in cima con il signal di oggi in italiano chiaro."""
     detail = SIGNAL_DETAIL.get(result["signal"], SIGNAL_DETAIL["HOLD"])
     btc = f"${result['btc_close']:,.0f}" if result["btc_close"] else "n/a"
-    target = result["target_btc_exposure_pct"]
+    buy, pct, amount, reserve = _buy_numbers(result)
+
+    # Variazione vs ieri (sul valore arrotondato mostrato): dice all'utente se deve agire o no
+    chip = "display:inline-block;margin-top:10px;font-size:0.8em;font-weight:700;padding:5px 12px;border-radius:20px;border:1px solid"
+    if prev_buy is None or abs(buy - prev_buy) < 0.05:
+        var_chip = f'<div style="{chip} #bbf7d0;background:#f0fdf4;color:#15803d">✓ Invariata · nessuna modifica da fare</div>'
+    elif buy > prev_buy:
+        var_chip = f'<div style="{chip} #86efac;background:#dcfce7;color:#15803d">↑ Aumentata da {prev_buy:.1f}× · aggiorna il ricorrente</div>'
+    else:
+        var_chip = f'<div style="{chip} #fed7aa;background:#fff7ed;color:#c2410c">↓ Ridotta da {prev_buy:.1f}× · aggiorna il ricorrente</div>'
+
+    reserve_line = ""
+    if reserve >= 0.05:
+        reserve_line = (f'<div style="font-size:0.8em;color:#475569;margin-top:8px;line-height:1.4">'
+                        f'💰 Riserva di capitale: <b>{reserve:.1f}×</b> il Capitale Base, da impiegare nelle fasi favorevoli</div>')
 
     return f"""
 <div class="hero" style="background:{detail['bg']};border:2px solid {detail['border']};border-radius:16px;padding:32px;margin-bottom:24px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap">
     <div style="flex:1;min-width:280px">
-      <div style="font-size:0.95em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Segnale di oggi</div>
+      <div style="font-size:0.95em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Strategia corrente</div>
       <div style="font-size:2.4em;font-weight:700;color:{detail['color']};line-height:1.1">{detail['emoji']} {detail['label']}</div>
       <div style="font-size:1.15em;color:{detail['color']};margin-top:12px;font-weight:500">{detail['action']}</div>
       <div style="font-size:0.95em;color:#475569;margin-top:10px">{detail['rationale']}</div>
     </div>
     <div class="hero-right" style="text-align:right;min-width:200px">
-      <div style="font-size:0.85em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px">Allocazione BTC suggerita</div>
-      <div class="big-target" style="font-size:3.4em;font-weight:800;color:{detail['color']};line-height:1">{target}%</div>
+      <div style="font-size:0.85em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px">Quota d'acquisto odierna</div>
+      <div class="big-target" style="font-size:3.4em;font-weight:800;color:{detail['color']};line-height:1">{buy:.1f}×</div>
+      {var_chip}
       <div style="font-size:0.8em;color:#475569;margin-top:8px;line-height:1.4">
-        della <b>quota cripto/BTC</b> che hai già<br>deciso di destinare a Bitcoin<br>
-        <span style="font-size:0.9em;color:#94a3b8">(non del patrimonio totale)</span>
+        il <b>Capitale Base</b> · <b style="color:{detail['color']}">{pct}</b> sulla quota standard<br>
+        <span style="font-size:0.95em;color:#0f172a">es. €{DCA_BASE_AMOUNT} → <b>~€{amount}</b> oggi</span>
       </div>
+      {reserve_line}
       <div style="margin-top:16px;padding:10px 14px;background:white;border-radius:8px;display:inline-block">
         <div style="font-size:0.8em;color:#64748b">BTC oggi</div>
         <div style="font-size:1.3em;font-weight:600;color:#0f172a">{btc}</div>
@@ -135,42 +173,55 @@ def _thermometer(result: dict) -> str:
 
     return f"""
 <div class="card">
-  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Quanto è caro/economico BTC adesso?</h2>
+  <h2 style="margin:0 0 8px;font-size:1.1em">📊 ANALISI DEL VALORE RELATIVO</h2>
   <p style="margin:0 0 20px;color:#64748b;font-size:0.95em">Composite score: <b style="color:{detail['color']}">{score:.1f} / 100</b> · più è basso, più è economico</p>
   <div style="position:relative;height:48px;border-radius:8px;overflow:hidden;background:linear-gradient(to right,#16a34a 0%,#22c55e 20%,#94a3b8 35%,#94a3b8 65%,#f97316 80%,#dc2626 100%)">
     <div style="position:absolute;left:{marker_left}%;top:-4px;bottom:-4px;width:4px;background:#0f172a;transform:translateX(-50%);box-shadow:0 0 0 2px white"></div>
     <div style="position:absolute;left:{marker_left}%;top:-28px;transform:translateX(-50%);background:#0f172a;color:white;padding:3px 8px;border-radius:6px;font-size:0.85em;font-weight:600;white-space:nowrap">{score:.0f}</div>
   </div>
   <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:0.78em;color:#64748b">
-    <div style="text-align:center;flex:1"><b style="color:#16a34a">💚 0-20</b><br>Compra forte</div>
-    <div style="text-align:center;flex:1"><b style="color:#22c55e">🌱 20-35</b><br>Accumula</div>
-    <div style="text-align:center;flex:1"><b style="color:#475569">⚖️ 35-65</b><br>Mantieni</div>
-    <div style="text-align:center;flex:1"><b style="color:#f97316">🟠 65-80</b><br>Riduci</div>
-    <div style="text-align:center;flex:1"><b style="color:#dc2626">🔴 80-100</b><br>Vendi forte</div>
+    <div style="text-align:center;flex:1"><b style="color:#16a34a">💚 0-20</b><br>Accumulo aggressivo</div>
+    <div style="text-align:center;flex:1"><b style="color:#22c55e">🌱 20-35</b><br>Accumulo incrementale</div>
+    <div style="text-align:center;flex:1"><b style="color:#475569">⚖️ 35-65</b><br>Accumulo standard</div>
+    <div style="text-align:center;flex:1"><b style="color:#f97316">🟠 65-80</b><br>Accumulo ridotto</div>
+    <div style="text-align:center;flex:1"><b style="color:#dc2626">🔴 80-100</b><br>Accumulo minimo</div>
   </div>
 </div>
 """
 
 
 def _indicators_table_human(result: dict) -> str:
-    rows = []
+    GRAD = ("linear-gradient(to right,#16a34a 0%,#22c55e 20%,#94a3b8 35%,"
+            "#94a3b8 65%,#f97316 80%,#dc2626 100%)")
+    cards = []
     for name in INDICATOR_WEIGHTS:
         info = result["indicators"].get(name, {})
         zone = info.get("zone", "n/a")
         emoji, label_simple, color = ZONE_TO_SIMPLE[zone]
         human = INDICATOR_HUMAN.get(name, {})
+        score = info.get("score")
 
-        rows.append(f"""<tr>
-          <td style="padding:14px 12px">
-            <div style="font-weight:600">{human.get('label', name)}</div>
-            <div style="color:#64748b;font-size:0.85em;margin-top:2px">{human.get('what', '')}</div>
-          </td>
-          <td style="padding:14px 12px;text-align:center;white-space:nowrap">
-            <span style="display:inline-flex;align-items:center;gap:6px;background:{color}20;color:{color};padding:6px 12px;border-radius:20px;font-weight:600;font-size:0.92em">
-              {emoji} {label_simple}
-            </span>
-          </td>
-        </tr>""")
+        if score is None:
+            meter = ('<div style="height:6px;border-radius:3px;background:#e2e8f0"></div>'
+                     '<div style="font-size:0.7em;color:#94a3b8;margin-top:5px">dato non disponibile</div>')
+        else:
+            pos = max(0.0, min(100.0, float(score)))
+            meter = (f'<div style="position:relative;height:6px;border-radius:3px;background:{GRAD}">'
+                     f'<div style="position:absolute;left:{pos:.0f}%;top:50%;width:11px;height:11px;border-radius:50%;'
+                     f'background:#0f172a;border:2px solid #fff;transform:translate(-50%,-50%);'
+                     f'box-shadow:0 0 0 1px rgba(15,23,42,0.2)"></div></div>'
+                     '<div style="display:flex;justify-content:space-between;font-size:0.64em;color:#94a3b8;margin-top:4px">'
+                     '<span>conveniente</span><span>caro</span></div>')
+
+        cards.append(f"""
+<div style="display:flex;flex-direction:column;border:1px solid #e2e8f0;border-left:4px solid {color};border-radius:10px;padding:14px 16px;background:#fff">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px">
+    <span style="font-weight:700;color:#0f172a">{human.get('label', name)}</span>
+    <span style="display:inline-flex;align-items:center;gap:5px;background:{color}20;color:{color};padding:4px 10px;border-radius:20px;font-weight:600;font-size:0.8em;white-space:nowrap">{emoji} {label_simple}</span>
+  </div>
+  <div style="color:#64748b;font-size:0.82em;line-height:1.45;flex:1;margin-bottom:14px">{human.get('what', '')}</div>
+  {meter}
+</div>""")
 
     return f"""
 <div class="card">
@@ -180,58 +231,63 @@ def _indicators_table_human(result: dict) -> str:
     <b style="color:#dc2626">{result.get('neg_count', 0)} negativi</b> ·
     {result.get('neu_count', 0)} neutri
   </p>
-  <p style="margin:0 0 16px;color:#94a3b8;font-size:0.85em">
+  <p style="margin:0 0 18px;color:#94a3b8;font-size:0.85em">
     Questi 9 indicatori, fusi insieme con il loro peso, producono il <b>Segnale di oggi</b> mostrato in cima alla pagina.
+    Il pallino su ogni barra mostra quanto quell'indicatore è oggi vicino al "conveniente" o al "caro".
   </p>
-  <div class="tbl-scroll"><table style="width:100%;border-collapse:separate;border-spacing:0 4px;min-width:340px">
-    <tbody>{''.join(rows)}</tbody>
-  </table></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px">
+    {''.join(cards)}
+  </div>
 </div>
 """
 
 
 def _action_box(result: dict) -> str:
     detail = SIGNAL_DETAIL.get(result["signal"], SIGNAL_DETAIL["HOLD"])
-    target = result["target_btc_exposure_pct"]
+    buy, pct, amount, reserve = _buy_numbers(result)
 
-    base = "Tieni il <b>{}%</b> della <b>quota che hai destinato a BTC</b> investita in Bitcoin (il resto in stable/cash)."
+    base = (f"<b>Quota d'acquisto di oggi: ≈ {buy:.1f}× il Capitale Base</b> "
+            f"({pct}; es. €{DCA_BASE_AMOUNT} → <b>~€{amount}</b>). L'accumulo prosegue senza interruzioni; nessuna liquidazione delle posizioni.")
+    saved = (f"<b>Riserva di capitale</b>: ≈ {reserve:.1f}× il Capitale Base accantonato, da impiegare nelle fasi di sottovalutazione."
+             if reserve >= 0.05 else
+             "<b>Riserva di capitale</b>: attualmente nulla — si costituisce nelle fasi in cui la quotazione è elevata e l'accumulo viene ridotto.")
 
     if result["signal"] == "STRONG_BUY":
         steps = [
-            base.format(target),
-            "<b>Modalità d'ingresso</b>: se sei sotto target, entra a scaglioni (DCA) in 2-3 tranche nei prossimi 7-14 giorni.",
-            "<b>Cosa monitorare</b>: il modello resterà in zona BUY finché 4+ indicatori sono favorevoli. Ti avviso quando cambia.",
+            base,
+            "<b>Esecuzione</b>: finestra di sottovalutazione marcata. Se disponi di riserva o liquidità dedicata, è la fase indicata per impiegarla nell'accumulo.",
+            "<b>Monitoraggio</b>: la strategia resta su questo livello finché 4+ indicatori restano favorevoli. Verrai notificato al cambio di livello.",
         ]
     elif result["signal"] == "ACCUMULATE":
         steps = [
-            base.format(target),
-            "<b>Modalità d'ingresso</b>: piccoli buy settimanali, niente fretta.",
-            "<b>Cosa monitorare</b>: se il composite scende sotto 20 → passa a STRONG_BUY → accelera gli acquisti.",
+            base,
+            "<b>Esecuzione</b>: incrementa l'importo degli acquisti ricorrenti rispetto alla quota standard, in modo frazionato.",
+            "<b>Monitoraggio</b>: se il composite scende sotto 20 → 'Accumulo aggressivo' → ulteriore incremento dell'intensità.",
         ]
     elif result["signal"] == "HOLD":
         steps = [
-            base.format(target),
-            "<b>Trend follow</b>: niente azioni nuove. Aspetta il prossimo segnale.",
-            "<b>Cosa monitorare</b>: variazioni significative del composite (±15 punti in pochi giorni) = riapri la dashboard.",
+            base,
+            "<b>Esecuzione</b>: prosegui l'accumulo alla quota standard, senza variazioni d'intensità.",
+            "<b>Monitoraggio</b>: variazioni significative del composite (±15 punti in pochi giorni) richiedono una nuova lettura della dashboard.",
         ]
     elif result["signal"] == "DERISK":
         steps = [
-            f"<b>Riduci verso il {target}%</b> di esposizione BTC sulla tua quota cripto. Il resto in stable/cash.",
-            "<b>Modalità d'uscita</b>: vendi in 2-3 tranche, evita panic-selling tutto in un colpo.",
-            "<b>Cosa monitorare</b>: se il composite passa sopra 80 → STRONG_SELL → completa la riduzione.",
+            base,
+            saved,
+            "<b>Monitoraggio</b>: se il composite supera 80 → 'Accumulo minimo' → ulteriore riduzione dell'intensità.",
         ]
     else:  # STRONG_SELL
         steps = [
-            f"<b>Riduci immediatamente al {target}%</b> sulla tua quota cripto destinata a BTC. Sposta il resto in stable/cash.",
-            "<b>Modalità d'uscita</b>: il modello vede confluenza di top di ciclo. Storicamente 50-85% drawdown nei 12 mesi successivi.",
-            "<b>Cosa monitorare</b>: i drawdown reali serviranno per i prossimi BUY. Pazienza, non FOMO.",
+            base,
+            saved,
+            "<b>Razionale</b>: confluenza di segnali di top di ciclo. Si evita ogni liquidazione — i ribassi successivi vengono finanziati dalla riserva costituita ora. Disciplina, non FOMO.",
         ]
 
     steps_html = "".join(f"<li style='margin-bottom:8px'>{s}</li>" for s in steps)
 
     return f"""
 <div class="card" style="background:{detail['bg']};border-left:4px solid {detail['border']};flex:1;min-width:300px;margin-bottom:0">
-  <h2 style="margin:0 0 12px;font-size:1.1em;color:{detail['color']}">✅ Cosa fare oggi</h2>
+  <h2 style="margin:0 0 12px;font-size:1.1em;color:{detail['color']}">✅ PROTOCOLLO OPERATIVO</h2>
   <ol style="margin:0;padding-left:20px;color:#1e293b">{steps_html}</ol>
 </div>
 """
@@ -255,52 +311,27 @@ REGIME_DETAIL = {
 }
 
 
-def _regime_and_divergence_banner(result: dict) -> str:
+def _regime_banner(result: dict) -> str:
     regime = result.get("regime", "BULL")
     rd = REGIME_DETAIL.get(regime, REGIME_DETAIL["BULL"])
-    sma200 = result.get("sma_200w")
-    sma_str = f"${sma200:,.0f}" if sma200 else "n/a"
     correction = result.get("regime_correction", False)
-    corr_badge = ""
-    if correction:
-        corr_badge = '<span style="display:inline-block;margin-left:8px;background:#f97316;color:white;padding:2px 8px;border-radius:8px;font-size:0.7em;vertical-align:middle">IN CORREZIONE</span>'
-    label_extra = " · in correzione di medio termine" if correction else ""
+    tone = "green" if regime == "BULL" else "red"
+    head = f"{rd['emoji']} {rd['label'].title()}" + (" · in correzione" if correction else "")
+    body = ("Prezzo sopra la media a 200 settimane." if regime == "BULL"
+            else "Prezzo sotto la media a 200 settimane.")
+    return _radar_card("Regime di mercato", head, body, tone)
 
-    # stile comune a tutti i box affiancati: ombra .card + border-left accento
-    col = 'class="card" style="margin-bottom:0;flex:1;min-width:240px;border-left:4px solid {accent};background:{bg}"'
 
-    # Divergenza RSI recente
+def _divergence_banner(result: dict) -> str:
     div = result.get("last_divergence")
     if div == "bull":
-        div_html = f"""<div {col.format(accent='#16a34a', bg='#dcfce7')}>
-          <div style="font-size:0.8em;color:#15803d;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
-          <div style="font-size:1.25em;font-weight:700;color:#15803d">📈 Divergenza RIALZISTA</div>
-          <div style="font-size:0.88em;color:#475569;margin-top:4px">Rilevata {result.get('last_divergence_age_days','?')} giorni fa sul weekly. Il prezzo ha fatto un nuovo minimo ma l'RSI no → possibile inversione al rialzo (segnale di reversal verso l'alto).</div>
-        </div>"""
-    elif div == "bear":
-        div_html = f"""<div {col.format(accent='#dc2626', bg='#fee2e2')}>
-          <div style="font-size:0.8em;color:#991b1b;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
-          <div style="font-size:1.25em;font-weight:700;color:#991b1b">📉 Divergenza RIBASSISTA</div>
-          <div style="font-size:0.88em;color:#475569;margin-top:4px">Rilevata {result.get('last_divergence_age_days','?')} giorni fa sul weekly. Il prezzo ha fatto un nuovo massimo ma l'RSI no → possibile inversione al ribasso (attenzione, segnale di reversal verso il basso).</div>
-        </div>"""
-    else:
-        div_html = f"""<div {col.format(accent='#cbd5e1', bg='white')}>
-          <div style="font-size:0.8em;color:#64748b;text-transform:uppercase;letter-spacing:1px">Divergenza RSI</div>
-          <div style="font-size:1.25em;font-weight:700;color:#475569">➖ Nessuna divergenza recente</div>
-          <div style="font-size:0.88em;color:#64748b;margin-top:4px">Nessuna divergenza prezzo/RSI significativa nelle ultime 6 settimane sul weekly. Niente segnale di inversione imminente da questo indicatore.</div>
-        </div>"""
-
-    return f"""
-<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px">
-  <div {col.format(accent=rd['color'], bg=rd['bg'])}>
-    <div style="font-size:0.8em;color:{rd['color']};text-transform:uppercase;letter-spacing:1px">Regime di mercato</div>
-    <div style="font-size:1.25em;font-weight:700;color:{rd['color']}">{rd['emoji']} {rd['label']}{corr_badge}</div>
-    <div style="font-size:0.88em;color:#475569;margin-top:4px">{rd['desc']}{label_extra}</div>
-    <div style="font-size:0.8em;color:#94a3b8;margin-top:6px">Media 200 settimane: {sma_str}</div>
-  </div>
-  {div_html}
-</div>
-"""
+        return _radar_card("Divergenza RSI", "📈 Divergenza rialzista",
+                           "Possibile inversione al rialzo (RSI weekly).", "green")
+    if div == "bear":
+        return _radar_card("Divergenza RSI", "📉 Divergenza ribassista",
+                           "Possibile inversione al ribasso (RSI weekly).", "red")
+    return _radar_card("Divergenza RSI", "➖ Nessuna divergenza",
+                       "Nessun reversal RSI nelle ultime 6 settimane.")
 
 
 DCA_DETAIL = {
@@ -328,22 +359,45 @@ def _dca_and_bot_row(result: dict) -> str:
     bot_state = dca.get("bot_state", "ATTIVO")
     state_color = "#16a34a" if bot_state == "ATTIVO" else "#f97316"
 
+    buy, pct, amount, reserve = _buy_numbers(result)
+    reserve_html = ""
+    if reserve >= 0.05:
+        reserve_html = (f'<div style="font-size:0.85em;color:{d["color"]};margin-top:8px;font-weight:600">'
+                        f'💰 Riserva di capitale: {reserve:.1f}× il Capitale Base</div>')
+
+    # Parametro operativo REALE per il box bot (sostituisce l'esempio astratto "+10-20%")
+    if buy > 1.0:
+        bot_param = (f"Imposta l'importo della singola ricorrenza a <b>≈{buy:.1f}× il Capitale Base</b> "
+                     f"({pct}; es. <b>€{amount}</b> con base €{DCA_BASE_AMOUNT}), mantenendo la stessa frequenza. "
+                     f"Entità e decisione restano tue.")
+    elif buy < 1.0:
+        bot_param = (f"Riduci l'importo della singola ricorrenza a <b>≈{buy:.1f}× il Capitale Base</b> "
+                     f"({pct}; es. <b>€{amount}</b> con base €{DCA_BASE_AMOUNT}), stessa frequenza; "
+                     f"la quota non investita confluisce nella riserva di capitale. Entità e decisione restano tue.")
+    else:
+        bot_param = ("Mantieni l'importo della ricorrenza alla <b>quota standard (1,0× il Capitale Base)</b>, "
+                     "stessa frequenza. Entità e decisione restano tue.")
+
+    sd = SIGNAL_DETAIL.get(result["signal"], SIGNAL_DETAIL["HOLD"])
+    sig_name = SIGNAL_SHORT_IT.get(result["signal"], result["signal"])
     dca_box = f"""
 <div class="card" style="background:{d['bg']};border-left:4px solid {d['border']};margin-bottom:0;flex:1;min-width:280px">
   <h2 style="margin:0 0 6px;font-size:1.1em;color:{d['color']}">₿ Strategia di accumulo (DCA)</h2>
-  <div style="font-size:1.5em;font-weight:700;color:{d['color']};margin:4px 0">{d['emoji']} DCA {dca['level']}</div>
+  <div style="font-size:1.5em;font-weight:700;color:{sd['color']};margin:4px 0">{sd['emoji']} {sig_name}</div>
   <div style="margin:2px 0 8px"><span style="display:inline-block;white-space:nowrap;font-size:0.78em;font-weight:600;background:{d['border']};color:white;padding:4px 12px;border-radius:12px">{d['tag']}</span></div>
   <div style="color:#475569;font-size:0.92em;line-height:1.5">{dca['reason']}</div>
+  <div style="font-size:0.95em;color:#0f172a;margin-top:10px">Quota d'acquisto di oggi: <b>{buy:.1f}×</b> il Capitale Base · <b>{pct}</b> <span style="color:#94a3b8">(es. €{DCA_BASE_AMOUNT} → ~€{amount})</span></div>
+  {reserve_html}
   {ref}
 </div>"""
 
     bot_box = f"""
 <div class="card" style="margin-bottom:0;flex:1;min-width:280px;border-left:4px solid #64748b">
-  <h2 style="margin:0 0 6px;font-size:1.1em">🤖 Istruzioni per i Bot DCA</h2>
+  <h2 style="margin:0 0 6px;font-size:1.1em">🤖 PARAMETRI OPERATIVI PER BOT DCA</h2>
   <div style="font-size:0.9em;margin:4px 0">
     Stato bot: <span style="font-weight:700;color:{state_color}">{bot_state}</span>
   </div>
-  <div style="color:#475569;font-size:0.92em;line-height:1.5">{dca.get('bot_action','')}</div>
+  <div style="color:#475569;font-size:0.92em;line-height:1.5">{bot_param}</div>
   <div style="font-size:0.78em;color:#94a3b8;margin-top:8px">
     Indicazione operativa per il tuo bot (Pionex, Crypto.com, ecc.). Da applicare manualmente — lo strumento non si collega al bot né esegue ordini.
   </div>
@@ -365,38 +419,38 @@ NEWS_LABEL_COLOR = {"Bullish": "#15803d", "Bearish": "#991b1b", "Neutrale": "#47
 
 
 def _fear_greed_widget(fng: dict | None) -> str:
-    """Widget Crypto Fear & Greed Index. Sentiment esterno al modello."""
+    """Widget Crypto Fear & Greed Index — metafora 'emozione' (faccia), distinta dal termometro."""
     if not fng or not fng.get("available"):
         return ""
     v = fng["value"]
     klass_it = fng["classification_it"]
-    # colore del valore secondo scala standard F&G (rosso paura → verde avidità)
     if v < 25:
-        vcolor = "#dc2626"
+        vcolor, face = "#dc2626", "😱"
     elif v < 45:
-        vcolor = "#f97316"
+        vcolor, face = "#f97316", "😨"
     elif v < 55:
-        vcolor = "#64748b"
+        vcolor, face = "#64748b", "😐"
     elif v < 75:
-        vcolor = "#22c55e"
+        vcolor, face = "#22c55e", "🙂"
     else:
-        vcolor = "#16a34a"
-    marker = max(0, min(100, v))
+        vcolor, face = "#16a34a", "🤑"
     return f"""
 <div class="card">
-  <h2 style="margin:0 0 4px;font-size:1.1em">😱 Fear &amp; Greed Index</h2>
-  <p style="margin:0 0 12px;color:#64748b;font-size:0.9em">Emotività del mercato crypto oggi: <b style="color:{vcolor}">{v}/100 — {klass_it}</b> · {fng['trend']}</p>
-  <div style="position:relative;height:40px;border-radius:8px;overflow:hidden;background:linear-gradient(to right,#dc2626 0%,#f97316 25%,#cbd5e1 50%,#22c55e 75%,#16a34a 100%)">
-    <div style="position:absolute;left:{marker}%;top:-3px;bottom:-3px;width:4px;background:#0f172a;transform:translateX(-50%);box-shadow:0 0 0 2px white"></div>
-    <div style="position:absolute;left:{marker}%;top:-26px;transform:translateX(-50%);background:#0f172a;color:white;padding:2px 8px;border-radius:6px;font-size:0.82em;font-weight:700;white-space:nowrap">{v}</div>
+  <h2 style="margin:0 0 14px;font-size:1.1em">Fear &amp; Greed Index <span style="font-weight:400;color:#94a3b8;font-size:0.7em">· emozione della folla</span></h2>
+  <div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="font-size:3.4em;line-height:1">{face}</div>
+      <div>
+        <div style="font-size:1.7em;font-weight:800;color:{vcolor};line-height:1.05">{v}<span style="font-size:0.45em;color:#94a3b8;font-weight:600"> /100</span></div>
+        <div style="font-size:1.02em;font-weight:700;color:{vcolor};margin-top:1px">{klass_it}</div>
+        <div style="font-size:0.84em;color:#64748b;margin-top:3px">{fng['trend']}</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:230px;border-left:3px solid #f1f5f9;padding-left:18px;color:#64748b;font-size:0.82em;line-height:1.5">
+      <b>Lettura contrarian:</b> la paura estrema ha storicamente coinciso con buone occasioni d'acquisto,
+      l'avidità estrema con i top. Contesto esterno, non entra nel composite.
+    </div>
   </div>
-  <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.75em;color:#94a3b8">
-    <span>0 · Paura estrema</span><span>50 · Neutrale</span><span>Avidità estrema · 100</span>
-  </div>
-  <p style="margin:14px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45">
-    ℹ️ Lettura <b>contrarian</b>: la paura estrema ha storicamente coinciso con buone occasioni d'acquisto,
-    l'avidità estrema con i top. È <b>contesto esterno</b>, non entra nel punteggio composite.
-  </p>
 </div>
 """
 
@@ -419,17 +473,10 @@ def _news_widget(news: dict | None) -> str:
     label = news["label"]
     label_color = NEWS_LABEL_COLOR.get(label, "#475569")
 
-    # barra sentiment a 3 segmenti
+    # sentiment a riga compatta (niente barra: è una metrica indicativa, non va enfatizzata)
     bar = f"""
-<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0 4px">
-  <div style="width:{bull}%;background:#16a34a"></div>
-  <div style="width:{neu}%;background:#cbd5e1"></div>
-  <div style="width:{bear}%;background:#dc2626"></div>
-</div>
-<div style="display:flex;justify-content:space-between;font-size:0.8em;color:#64748b;margin-bottom:16px">
-  <span style="color:#16a34a;font-weight:600">🟢 {bull}% Bullish</span>
-  <span>⚪ {neu}% Neutrale</span>
-  <span style="color:#dc2626;font-weight:600">🔴 {bear}% Bearish</span>
+<div style="font-size:0.9em;color:#475569;margin:2px 0 16px">
+  <b style="color:#16a34a">🟢 {bull}%</b> Bullish · <b style="color:#64748b">⚪ {neu}%</b> Neutrale · <b style="color:#dc2626">🔴 {bear}%</b> Bearish
 </div>"""
 
     rows = []
@@ -440,28 +487,92 @@ def _news_widget(news: dict | None) -> str:
         src = safe(it["source"])
         date_str = it["published"].strftime("%d/%m") if it.get("published") else ""
         rows.append(f"""
-<a href="{link}" target="_blank" rel="noopener noreferrer"
-   style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9;text-decoration:none;color:inherit">
+<a href="{link}" target="_blank" rel="noopener noreferrer" class="news-item"
+   style="display:flex;align-items:flex-start;gap:10px;padding:11px 10px;border-top:1px solid #f1f5f9;text-decoration:none;border-radius:6px">
   <span style="font-size:0.95em;flex-shrink:0">{emoji}</span>
   <span style="flex:1;min-width:0">
-    <span style="font-size:0.93em;color:#1e293b;font-weight:500">{title}</span>
-    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">{src} · {date_str} ↗</span>
+    <span style="font-size:0.93em;color:#2563eb;font-weight:600">{title} <span style="font-size:0.85em">↗</span></span>
+    <span style="display:block;font-size:0.78em;color:#94a3b8;margin-top:2px">{src} · {date_str}</span>
   </span>
+  <span style="color:#cbd5e1;flex-shrink:0;font-size:1.1em;align-self:center">›</span>
 </a>""")
 
     return f"""
 <div class="card">
-  <h2 style="margin:0 0 4px;font-size:1.1em">📰 Macro Sentiment &amp; Breaking News</h2>
-  <p style="margin:0 0 6px;color:#64748b;font-size:0.9em">
-    Clima delle notizie crypto di oggi: <b style="color:{label_color}">{label}</b>
-    <span style="color:#94a3b8">(su {news['total']} testate analizzate)</span>
-  </p>
-  {bar}
-  <div>{''.join(rows)}</div>
-  <p style="margin:14px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45">
+  <h2 style="margin:0 0 14px;font-size:1.1em">📰 Macro Sentiment &amp; Breaking News</h2>
+  <div style="display:flex;gap:24px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px;max-width:300px;border-right:1px solid #f1f5f9;padding-right:18px">
+      <div style="font-size:0.82em;color:#475569">Clima delle notizie di oggi</div>
+      <div style="font-size:1.8em;font-weight:800;color:{label_color};line-height:1.1;margin:2px 0 1px">{label}</div>
+      <div style="font-size:0.8em;color:#94a3b8;margin-bottom:14px">su {news['total']} testate analizzate</div>
+      {bar}
+      <div style="font-size:0.8em;color:#2563eb;font-weight:700;margin-top:6px">👉 Titoli cliccabili (nuova scheda)</div>
+    </div>
+    <div style="flex:2.2;min-width:280px">
+      {''.join(rows)}
+    </div>
+  </div>
+  <p style="margin:16px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45;border-top:1px solid #f1f5f9;padding-top:12px">
     ℹ️ Le notizie sono <b>contesto</b>, non un segnale operativo: il sentiment dei titoli è rumoroso e
     <b>non entra nel punteggio composite</b>. Quando una notizia è pubblica, il movimento di prezzo è spesso già avvenuto.
   </p>
+</div>
+"""
+
+
+def _external_widget(fng: dict | None, news: dict | None) -> str:
+    """Widget unico 'contesto esterno' a 2 colonne: Fear&Greed (sx) + sentiment notizie (dx), senza link."""
+    fng_ok = bool(fng and fng.get("available"))
+    news_ok = bool(news and news.get("available"))
+    if not fng_ok and not news_ok:
+        return ""
+
+    if fng_ok:
+        v = fng["value"]
+        if v < 25:
+            vcol, face = "#dc2626", "😱"
+        elif v < 45:
+            vcol, face = "#f97316", "😨"
+        elif v < 55:
+            vcol, face = "#64748b", "😐"
+        elif v < 75:
+            vcol, face = "#22c55e", "🙂"
+        else:
+            vcol, face = "#16a34a", "🤑"
+        left = f"""
+      <div style="font-size:0.74em;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:14px">Fear &amp; Greed Index · emozione della folla</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="font-size:3em;line-height:1">{face}</div>
+        <div>
+          <div style="font-size:1.6em;font-weight:800;color:{vcol};line-height:1.05">{v}<span style="font-size:0.45em;color:#94a3b8;font-weight:600"> /100</span></div>
+          <div style="font-size:1.02em;font-weight:700;color:{vcol}">{fng['classification_it']}</div>
+          <div style="font-size:0.82em;color:#64748b;margin-top:3px">{fng['trend']}</div>
+        </div>
+      </div>
+      <p style="margin:16px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45"><b>Lettura contrarian:</b> la paura estrema ha storicamente coinciso con buone occasioni d'acquisto, l'avidità estrema con i top. Contesto esterno, non entra nel composite.</p>"""
+    else:
+        left = '<div style="color:#94a3b8;font-size:0.9em">Fear &amp; Greed non disponibile.</div>'
+
+    if news_ok:
+        b, n, be = news["bull_pct"], news["neutral_pct"], news["bear_pct"]
+        lab = news["label"]
+        lc = NEWS_LABEL_COLOR.get(lab, "#475569")
+        right = f"""
+      <div style="font-size:0.74em;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:14px">📰 Macro Sentiment</div>
+      <div style="font-size:0.85em;color:#475569">Clima delle notizie di oggi</div>
+      <div style="font-size:1.9em;font-weight:800;color:{lc};line-height:1.1;margin:2px 0 1px">{lab}</div>
+      <div style="font-size:0.8em;color:#94a3b8;margin-bottom:14px">su {news['total']} testate analizzate</div>
+      <div style="font-size:0.9em;color:#475569"><b style="color:#16a34a">🟢 {b}%</b> Bullish · <b style="color:#64748b">⚪ {n}%</b> Neutrale · <b style="color:#dc2626">🔴 {be}%</b> Bearish</div>
+      <p style="margin:16px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45">Indicazione di massima sul tono dei titoli: contesto, non un segnale. Non entra nel composite.</p>"""
+    else:
+        right = '<div style="color:#94a3b8;font-size:0.9em">Notizie non disponibili al momento.</div>'
+
+    return f"""
+<div class="card">
+  <div style="display:flex;gap:28px;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px">{left}</div>
+    <div style="flex:1;min-width:240px;border-left:1px solid #eef2f7;padding-left:28px">{right}</div>
+  </div>
 </div>
 """
 
@@ -603,23 +714,18 @@ def _recent_signal_changes(history: pd.DataFrame, n: int = 8, horizons=(30, 90, 
     )
     return f"""
 <div class="card">
-  <h2 style="margin:0 0 6px;font-size:1.1em">📜 Ultimi cambi di segnale</h2>
-  <p style="margin:0 0 10px;color:#64748b;font-size:0.92em">
-    Ogni riga è un momento in cui il <b>segnale operativo è cambiato</b> rispetto al precedente
-    (es. da <i>Mantieni</i> ad <i>Accumula</i>): accade quando il punteggio composite supera una soglia.
-    Può succedere a distanza di settimane o mesi. Mostriamo i cambi degli <b>ultimi ~6 mesi</b>.
-  </p>
+  <h2 style="margin:0 0 6px;font-size:1.1em">📜 Il modello alla prova · ultimi 6 mesi</h2>
   <p style="margin:0 0 12px;color:#64748b;font-size:0.92em">
-    Le colonne <b>Esito</b> dicono se la mossa si è poi rivelata corretta a <b>30, 90 e 180 giorni</b>
-    (prezzo andato nella direzione attesa). Più lungo è l'orizzonte, più conta per l'accumulo.
-    Misura <i>indicativa</i>; trattino grigio = orizzonte non ancora maturo.
-    <b>Aver funzionato in passato non garantisce risultati futuri.</b>
+    Ogni riga è un <b>cambio di livello di accumulo</b> suggerito dal modello. Le colonne <b>Esito</b> mostrano come si è
+    mosso il prezzo nei 30/90/180 giorni dopo: ✅ se è andato nella <b>direzione prevista</b>, ❌ se no
+    (trattino = orizzonte non ancora maturo). Serve a <b>convalidare la bontà del segnale</b>, non a misurare il rendimento del modello.
+    Lo storico completo è il <b>grafico qui sopra</b>.
   </p>
   <div class="tbl-scroll"><table class="changes-tbl" style="width:100%;border-collapse:collapse">
     <thead><tr style="background:#f1f5f9;color:#475569;font-size:0.85em;text-transform:uppercase;letter-spacing:1px">
       <th style="padding:8px 12px;text-align:left">Data</th>
       <th style="padding:8px 12px;text-align:left">BTC</th>
-      <th style="padding:8px 12px;text-align:left">Nuovo segnale</th>
+      <th style="padding:8px 12px;text-align:left">Nuova indicazione</th>
       {esito_headers}
     </tr></thead>
     <tbody>{''.join(rows)}</tbody>
@@ -628,25 +734,23 @@ def _recent_signal_changes(history: pd.DataFrame, n: int = 8, horizons=(30, 90, 
 """
 
 
-def _signal_distribution(history: pd.DataFrame) -> str:
-    """Quanto tempo abbiamo passato in ciascuno stato."""
+def _phase_maturity_alert(history: pd.DataFrame, current_signal: str | None = None) -> str:
+    """Alert adattivo (sezione ②): da quanti giorni dura la fase d'accumulo corrente
+    rispetto alla sua durata tipica. Diventa un warning ambra SOLO quando la supera;
+    altrimenti è una nota di contesto neutra (come '➖ nessuna divergenza')."""
     if history is None or history.empty:
         return ""
     h = history.copy().sort_values("date").reset_index(drop=True)
-    counts = h["signal"].value_counts()
-    total = counts.sum()
-    order = ["STRONG_BUY", "ACCUMULATE", "HOLD", "DERISK", "STRONG_SELL"]
+    current = current_signal or h["signal"].iloc[-1]
 
-    # Fase corrente + da quanti giorni dura
-    current = h["signal"].iloc[-1]
-    streak = 1
-    for s in h["signal"].iloc[::-1][1:]:
+    streak = 0
+    for s in reversed(h["signal"].tolist()):
         if s == current:
             streak += 1
         else:
             break
+    streak = max(1, streak)
 
-    # Durata media storica delle fasi dello stesso tipo (run consecutivi)
     runs = []
     run_sig, run_len = h["signal"].iloc[0], 1
     for s in h["signal"].iloc[1:]:
@@ -657,65 +761,96 @@ def _signal_distribution(history: pd.DataFrame) -> str:
             run_sig, run_len = s, 1
     runs.append((run_sig, run_len))
     same = [ln for sg, ln in runs if sg == current]
-    avg_dur = round(sum(same) / len(same)) if same else streak
+    avg_dur = max(1, round(sum(same) / len(same))) if same else streak
 
-    d_cur = SIGNAL_DETAIL.get(current, SIGNAL_DETAIL["HOLD"])
-    cur_it = SIGNAL_SHORT_IT.get(current, current)
+    d = SIGNAL_DETAIL.get(current, SIGNAL_DETAIL["HOLD"])
+    name = SIGNAL_SHORT_IT.get(current, current)
     if streak > avg_dur:
-        maturity = f"fase <b>matura</b> (oltre la media di {avg_dur} giorni)"
-    elif streak >= avg_dur * 0.6:
-        maturity = f"fase <b>in corso</b> (media storica ~{avg_dur} giorni)"
-    else:
-        maturity = f"fase <b>recente</b> (media storica ~{avg_dur} giorni)"
+        return _radar_card("⏱️ Durata della fase", f"⚠️ Fase matura · {streak}gg",
+                           f"Oltre la durata tipica (~{avg_dur}gg): possibile cambio.", "amber")
+    return _radar_card("⏱️ Durata della fase", f"{d['emoji']} {streak}gg in {name.lower()}",
+                       f"Durata tipica ~{avg_dur}gg · nella norma.")
 
-    current_box = f"""
-<div style="background:{d_cur['bg']};border-left:4px solid {d_cur['border']};border-radius:8px;padding:14px 16px;margin-bottom:18px">
-  <div style="font-size:0.78em;text-transform:uppercase;letter-spacing:1px;color:{d_cur['color']}">Dove sei oggi</div>
-  <div style="font-size:1.15em;font-weight:700;color:{d_cur['color']};margin:2px 0">{d_cur['emoji']} {cur_it} — da {streak} giorni</div>
-  <div style="font-size:0.88em;color:#475569">{maturity}</div>
-</div>"""
+
+def _signal_distribution(history: pd.DataFrame, current_signal: str | None = None) -> str:
+    """Sezione storica ④: barre di frequenza per livello (quanto spesso siamo stati
+    a ciascuna intensità) con la durata media tipica di ciascuna fase."""
+    if history is None or history.empty:
+        return ""
+    h = history.copy().sort_values("date").reset_index(drop=True)
+    counts = h["signal"].value_counts()
+    total = int(counts.sum())
+    order = ["STRONG_BUY", "ACCUMULATE", "HOLD", "DERISK", "STRONG_SELL"]
+
+    # Stato corrente (coerente con l'hero): serve solo per evidenziare la barra attuale
+    current = current_signal or h["signal"].iloc[-1]
+
+    # Durata media per livello (lunghezza media dei run consecutivi) → "Media Xgg"
+    runs = []
+    run_sig, run_len = h["signal"].iloc[0], 1
+    for s in h["signal"].iloc[1:]:
+        if s == run_sig:
+            run_len += 1
+        else:
+            runs.append((run_sig, run_len))
+            run_sig, run_len = s, 1
+    runs.append((run_sig, run_len))
+
+    # --- Barre di frequenza: durata media per livello + totale storico ----
+    avg_by_sig = {}
+    for sig in order:
+        lens = [ln for s, ln in runs if s == sig]
+        avg_by_sig[sig] = round(sum(lens) / len(lens)) if lens else 0
 
     bars = []
     for sig in order:
         n = int(counts.get(sig, 0))
         pct = 100 * n / total if total else 0
         d = SIGNAL_DETAIL.get(sig, SIGNAL_DETAIL["HOLD"])
-        sig_it = SIGNAL_SHORT_IT.get(sig, sig)
+        name = SIGNAL_SHORT_IT.get(sig, sig)
         is_cur = sig == current
         name_style = f"color:{d['color']};font-weight:700" if is_cur else f"color:{d['color']};font-weight:600"
-        dot = " 📍" if is_cur else ""
+        outline = f";box-shadow:inset 0 0 0 2px {d['border']}" if is_cur else ""
+        avg_sig = avg_by_sig.get(sig, 0)
+        media_label = (f'<span style="position:absolute;left:calc({pct:.1f}% + 10px);top:50%;transform:translateY(-50%);'
+                       f'font-size:0.74em;font-weight:600;color:#475569;white-space:nowrap">Media {avg_sig}gg</span>')
         bars.append(f"""
-<div style="margin-bottom:10px">
-  <div style="display:flex;justify-content:space-between;font-size:0.9em;margin-bottom:4px">
-    <span style="{name_style}">{d['emoji']} {sig_it}{dot}</span>
-    <span style="color:#64748b">{n} giorni · {pct:.1f}%</span>
+<div style="margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;font-size:0.88em;margin-bottom:6px;gap:10px">
+    <span style="{name_style}">{d['emoji']} {name}</span>
+    <span style="color:#64748b;white-space:nowrap">Totale storico in questa fase <b>{n} giorni</b> · {pct:.1f}%</span>
   </div>
-  <div style="height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden{';outline:2px solid '+d['border'] if is_cur else ''}">
-    <div style="height:100%;width:{pct:.1f}%;background:{d['border']}"></div>
+  <div style="position:relative;height:22px;background:#f1f5f9;border-radius:7px{outline}">
+    <div style="position:absolute;left:0;top:0;bottom:0;width:{pct:.1f}%;background:{d['border']};border-radius:7px"></div>
+    {media_label}
   </div>
 </div>""")
 
     return f"""
 <div class="card">
-  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Distribuzione storica dei segnali</h2>
-  {current_box}
-  <p style="margin:0 0 16px;color:#64748b;font-size:0.95em">Ripartizione percentuale dei segnali del modello sugli ultimi {total} giorni (dal {h['date'].min().date()}). I top sono rari, l'accumulo è frequente.</p>
+  <h2 style="margin:0 0 8px;font-size:1.1em">📊 Distribuzione storica dell'accumulo</h2>
+  <p style="margin:0 0 16px;color:#64748b;font-size:0.92em">
+    <b>Quanto è frequente ogni intensità</b>, sugli ultimi {total} giorni (dal {h['date'].min().date()}).
+    L'<b>Accumulo standard</b> è la norma; gli estremi (aggressivo/minimo) sono <b>rari</b> — per questo contano quando compaiono.
+  </p>
   {''.join(bars)}
 </div>
 """
 
 
 def _explain_target(result: dict) -> str:
-    target = result["target_btc_exposure_pct"]
+    buy, pct, amount, reserve = _buy_numbers(result)
     return f"""
 <div class="card" style="background:#eff6ff;border-left:4px solid #3b82f6;flex:1;min-width:300px;margin-bottom:0">
-  <h2 style="margin:0 0 8px;font-size:1em;color:#1e40af">ℹ️ Come si legge questo {target}%</h2>
+  <h2 style="margin:0 0 8px;font-size:1em;color:#1e40af">ℹ️ NOTE SULLA MODULAZIONE DEL CAPITALE</h2>
   <p style="margin:0;color:#1e3a8a;font-size:0.92em;line-height:1.55">
-    Il modello assume che tu abbia <b>già deciso quanto del tuo patrimonio destinare a BTC</b>
-    (es. il 5%, il 20%, il 60% — è una scelta personale che dipende dalla tua tolleranza al rischio).<br><br>
-    Questo <b>{target}%</b> ti dice <b>come allocare quella quota</b>: oggi tienine il {target}% in Bitcoin
-    e il restante {round(100 - target, 1)}% in stablecoin/cash, pronto a entrare se il segnale si rafforza.
-    <b>Non è una raccomandazione su quanto del tuo patrimonio investire in BTC.</b>
+    Il riferimento è il <b>Capitale Base</b>: la quota d'acquisto standard che destini periodicamente a BTC
+    (es. €{DCA_BASE_AMOUNT} — parametro personale).<br><br>
+    Il valore <b>{buy:.1f}×</b> ({pct}) è il <b>fattore di modulazione</b> applicato al Capitale Base: oggi indica un impiego
+    {('superiore' if buy > 1 else 'inferiore' if buy < 1 else 'pari')} alla quota standard
+    (es. €{DCA_BASE_AMOUNT} → ~€{amount}). Nelle fasi di sopravvalutazione l'intensità si riduce e la quota non investita
+    confluisce nella <b>riserva di capitale</b>; nelle fasi di sottovalutazione l'intensità aumenta, attingendo alla riserva.
+    <b>Nessuna liquidazione</b>: si modula esclusivamente l'intensità di accumulo.
   </p>
 </div>
 """
@@ -730,21 +865,33 @@ def _chart_legend() -> str:
                 f'<span style="color:#475569;font-size:0.85em">{label}</span></span>')
 
     tendenza = " &nbsp;·&nbsp; ".join([
-        it("▲", "#16a34a", "Compra forte"),
-        it("●", "#4ade80", "Accumula"),
-        it("●", "#fb923c", "Riduci"),
-        it("▼", "#dc2626", "Vendi forte"),
+        it("▲", "#16a34a", "Accumulo aggressivo"),
+        it("●", "#4ade80", "Accumulo incrementale"),
+        it("●", "#fb923c", "Accumulo ridotto"),
+        it("▼", "#dc2626", "Accumulo minimo"),
     ])
     momento = " &nbsp;·&nbsp; ".join([
         it("✕", "#16a34a", "Div. rialzista"),
         it("✕", "#dc2626", "Div. ribassista"),
+    ])
+
+    def dash(color, label):
+        return (f'<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap">'
+                f'<span style="display:inline-block;width:0;height:15px;border-left:2px dashed {color}"></span>'
+                f'<span style="color:#475569;font-size:0.85em">{label}</span></span>')
+
+    cicli = " &nbsp;·&nbsp; ".join([
+        dash("#dc2626", "Top di ciclo storico"),
+        dash("#16a34a", "Bottom di ciclo storico"),
     ])
     return f"""
 <div style="margin-top:8px;border-top:1px solid #f1f5f9;padding-top:12px">
   <div style="font-size:0.72em;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:6px">Segnali di tendenza</div>
   <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:12px">{tendenza}</div>
   <div style="font-size:0.72em;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:6px">Indicatori di momento</div>
-  <div style="display:flex;flex-wrap:wrap;gap:6px 14px">{momento}</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:12px">{momento}</div>
+  <div style="font-size:0.72em;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:6px">Linee verticali tratteggiate</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px 14px">{cicli}</div>
 </div>"""
 
 
@@ -756,24 +903,157 @@ def _section_header(num: str, title: str) -> str:
 </div>"""
 
 
+def _radar_card(label, head, body, tone="neutral") -> str:
+    """Card compatta del radar di contesto (③). Neutro = muto/grigio (recede);
+    tone colorato solo quando il segnale è attivo (risalta)."""
+    palette = {
+        "neutral": ("#e2e8f0", "#475569", "#ffffff"),
+        "green":   ("#16a34a", "#15803d", "#f0fdf4"),
+        "red":     ("#dc2626", "#991b1b", "#fef2f2"),
+        "amber":   ("#ca8a04", "#92400e", "#fffbeb"),
+    }
+    accent, headcol, bg = palette.get(tone, palette["neutral"])
+    return f"""<div style="border:1px solid #e8edf3;border-left:3px solid {accent};border-radius:8px;padding:11px 14px;background:{bg}">
+  <div style="font-size:0.66em;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8">{label}</div>
+  <div style="font-size:0.98em;font-weight:700;color:{headcol};margin:3px 0 2px">{head}</div>
+  <div style="font-size:0.78em;color:#64748b;line-height:1.4">{body}</div>
+</div>"""
+
+
+def _golden_death_alert(ind_df: pd.DataFrame, window_days: int = 180, confirm_days: int = 21) -> str:
+    """Golden/Death Cross (SMA 50 vs 200 daily) — variante DCA con conferma anti-whipsaw."""
+    if ind_df is None or ind_df.empty or "dma_200" not in ind_df:
+        return ""
+    df = ind_df.dropna(subset=["dma_200"]).reset_index(drop=True)
+    df = df.assign(dma_50=df["close"].rolling(50).mean()).dropna(subset=["dma_50"]).reset_index(drop=True)
+    if len(df) < 2:
+        return ""
+    above = (df["dma_50"] > df["dma_200"]).tolist()
+    dates = pd.to_datetime(df["date"])
+    last_date = dates.iloc[-1]
+    above_now = above[-1]
+
+    # incroci grezzi → tieni solo quelli "confermati" (lo stato regge ≥ confirm_days)
+    raw = [(i, "golden" if above[i] else "death") for i in range(1, len(above)) if above[i] != above[i - 1]]
+    confirmed = []
+    for k, (i, t) in enumerate(raw):
+        end_i = raw[k + 1][0] if k + 1 < len(raw) else len(df) - 1
+        if (dates.iloc[end_i] - dates.iloc[i]).days >= confirm_days:
+            confirmed.append((i, t))
+
+    if confirmed:
+        ci, ct = confirmed[-1]
+        age = int((last_date - dates.iloc[ci]).days)
+        if age <= window_days and ct == "golden":
+            return _radar_card("Golden / Death Cross", f"📈 Golden Cross · {age}gg fa",
+                "Medie 50/200gg: trend di fondo tornato rialzista.", "green")
+        if age <= window_days and ct == "death":
+            return _radar_card("Golden / Death Cross", f"📉 Death Cross · {age}gg fa",
+                "Medie 50/200gg: trend di fondo in territorio debole.", "red")
+        trend = "rialzista" if ct == "golden" else "ribassista"
+        return _radar_card("Golden / Death Cross", "➖ Nessun incrocio recente",
+            f"Trend di fondo {trend} (medie 50/200gg).")
+    trend = "rialzista" if above_now else "ribassista"
+    return _radar_card("Golden / Death Cross", "➖ Nessun incrocio recente",
+        f"Trend di fondo {trend} (medie 50/200gg).")
+
+
+def _pi_cycle_alert(ind_df: pd.DataFrame, window_days: int = 180) -> str:
+    """Pi Cycle Top: 111DMA che supera 2×350DMA → top di ciclo storico (indicatore standard)."""
+    if ind_df is None or "pi_cycle" not in ind_df:
+        return ""
+    df = ind_df.dropna(subset=["pi_cycle"]).reset_index(drop=True)
+    if len(df) < 2:
+        return ""
+    last_date = pd.to_datetime(df["date"].iloc[-1])
+    r = float(df["pi_cycle"].iloc[-1])
+    cross_i = None
+    for i in range(len(df) - 1, 0, -1):
+        if df["pi_cycle"].iloc[i] >= 1.0 and df["pi_cycle"].iloc[i - 1] < 1.0:
+            cross_i = i
+            break
+    age = int((last_date - pd.to_datetime(df["date"].iloc[cross_i])).days) if cross_i is not None else None
+    pct = max(0, round(r * 100))
+    if age is not None and age <= window_days:
+        return _radar_card("Pi Cycle Top", f"⚠️ Top di ciclo scattato · {age}gg fa",
+            "Storico indicatore dei massimi di ciclo. Frena gli acquisti.", "red")
+    if r >= 0.9:
+        return _radar_card("Pi Cycle Top", f"🟡 Vicino al top · {pct}%",
+            "Si avvicina al trigger di top di ciclo.", "amber")
+    return _radar_card("Pi Cycle Top", "➖ Nessun top segnalato",
+        "Lontano dalla soglia di top di ciclo.")
+
+
+def _hash_ribbons_alert(ind_df: pd.DataFrame, window_days: int = 180,
+                        capit_days: int = 14, dedup_days: int = 90) -> str:
+    """Hash Ribbons — variante DCA stretta: solo dopo vera capitolazione + de-dup."""
+    if ind_df is None or "hash_ribbons" not in ind_df:
+        return ""
+    df = ind_df.dropna(subset=["hash_ribbons"]).reset_index(drop=True)
+    if len(df) < 2:
+        return ""
+    ratio_s = df["hash_ribbons"].tolist()
+    dates = pd.to_datetime(df["date"])
+    last_date = dates.iloc[-1]
+    ratio_now = float(ratio_s[-1])
+
+    # capitolazione = ratio<1 per ≥ capit_days consecutivi, POI ripartenza (cross sopra 1)
+    valid_buys = []
+    last_kept = None
+    cap_run = 0
+    for i in range(len(df)):
+        if ratio_s[i] < 1.0:
+            cap_run += 1
+        else:
+            if cap_run >= capit_days and i > 0 and ratio_s[i - 1] < 1.0:  # ripartenza dopo vera capitolazione
+                if last_kept is None or (dates.iloc[i] - dates.iloc[last_kept]).days >= dedup_days:
+                    valid_buys.append(i)
+                    last_kept = i
+            cap_run = 0
+
+    age = int((last_date - dates.iloc[valid_buys[-1]]).days) if valid_buys else None
+    if age is not None and age <= window_days:
+        return _radar_card("Hash Ribbons (miner)", f"🟢 Segnale d'acquisto · {age}gg fa",
+            "Ripartenza miner dopo capitolazione: zona di accumulo.", "green")
+    if ratio_now < 1.0:
+        return _radar_card("Hash Ribbons (miner)", "🟠 Miner in capitolazione",
+            "Miner sotto stress: spesso precede un bottom.", "amber")
+    return _radar_card("Hash Ribbons (miner)", "➖ Nessun segnale recente",
+        "Rete miner in salute.")
+
+
 def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None,
                     divergences: pd.DataFrame | None = None, news: dict | None = None,
                     fng: dict | None = None) -> Path:
-    hero = _hero_banner(result)
-    regime_div = _regime_and_divergence_banner(result)
+    prev_buy = None
+    if history is not None and "dca_buy_factor" in history.columns and len(history) >= 2:
+        try:
+            prev_buy = round(float(history["dca_buy_factor"].iloc[-2]), 1)
+        except Exception:
+            prev_buy = None
+    hero = _hero_banner(result, prev_buy=prev_buy)
+    regime_banner = _regime_banner(result)
+    divergence_banner = _divergence_banner(result)
+    maturity_alert = _phase_maturity_alert(history, result.get("signal")) if history is not None else ""
+    golden_death = _golden_death_alert(ind_df)
+    pi_cycle_alert = _pi_cycle_alert(ind_df)
+    hash_alert = _hash_ribbons_alert(ind_df)
     dca = _dca_and_bot_row(result)
     therm = _thermometer(result)
-    action = _action_box(result)
-    explain = _explain_target(result)
     indicators = _indicators_table_human(result)
-    fng_widget = _fear_greed_widget(fng)
-    news_widget = _news_widget(news)
+    external_widget = _external_widget(fng, news)
     history_chart = _history_with_signals(history, divergences=divergences) if history is not None else ""
     changes_table = _recent_signal_changes(history) if history is not None else ""
-    distribution = _signal_distribution(history) if history is not None else ""
 
     btc_price = result["btc_close"]
     btc_price_str = f"${btc_price:,.0f}" if btc_price else "n/a"
+    _mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+             "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+    try:
+        _y, _m, _d = str(result["date"]).split("-")
+        date_it = f"{int(_d)} {_mesi[int(_m) - 1]} {_y}"
+    except Exception:
+        date_it = str(result["date"])
 
     html = f"""<!doctype html>
 <html lang="it">
@@ -792,6 +1072,8 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   .meta {{ color: #94a3b8; margin-bottom: 24px; font-size: 0.9em; }}
   .card {{ background: white; border-radius: 12px; padding: 24px;
            box-shadow: 0 1px 4px rgba(15,23,42,0.08); margin-bottom: 20px; }}
+  .news-item {{ transition: background 0.12s ease; }}
+  .news-item:hover {{ background: #f1f5f9; }}
   table {{ font-size: 0.95em; width: 100%; }}
   .tbl-scroll {{ overflow-x: auto; -webkit-overflow-scrolling: touch; }}
   .js-plotly-plot, .plotly, .plot-container {{ width: 100% !important; max-width: 100%; }}
@@ -831,13 +1113,15 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 <body>
 <div class="wrap">
   <h1 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-    BTC Composite Indicator
+    BTC Composite Model
     <span style="font-size:0.5em;font-weight:700;letter-spacing:1px;background:#e0e7ff;color:#4338ca;padding:3px 9px;border-radius:6px;vertical-align:middle">BETA</span>
-    <span style="font-size:0.5em;font-weight:700;letter-spacing:1px;background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:6px;vertical-align:middle">ACCUMULO · DCA</span>
+    <span style="font-size:0.5em;font-weight:700;letter-spacing:1px;background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:6px;vertical-align:middle">DCA</span>
   </h1>
-  <div class="tagline">Quando accumulare e quando alleggerire Bitcoin, in un colpo d'occhio</div>
-  <div style="color:#64748b;font-size:0.85em;margin-bottom:6px">Strumento di accumulo a lungo termine — non trading speculativo</div>
-  <div class="meta">Aggiornamento del <b>{result['date']}</b> · BTC oggi: <b>{btc_price_str}</b></div>
+  <div class="tagline">Modello di valutazione ciclica per l'accumulo frazionato di Bitcoin.</div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 26px">
+    <span style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;color:#475569;font-size:0.85em;font-weight:600;padding:6px 13px;border-radius:20px">🗓️ Aggiornato il {date_it}</span>
+    <span style="display:inline-flex;align-items:center;gap:6px;background:#fff7ed;color:#ea580c;font-size:0.95em;font-weight:800;padding:6px 14px;border-radius:20px;border:1px solid #fed7aa">₿ BTC {btc_price_str}</span>
+  </div>
 
   {_section_header("①", "Il quadro di oggi")}
 
@@ -847,26 +1131,30 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
 
   {dca}
 
-  <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px">
-    {action}
-    {explain}
-  </div>
-
   {_section_header("②", "Perché il modello lo suggerisce")}
-
-  {regime_div}
 
   {indicators}
 
   {_section_header("③", "Contesto &amp; sentiment di mercato")}
 
-  <p style="margin:-4px 0 16px;color:#94a3b8;font-size:0.88em">
-    Informazioni esterne al modello: utili come contorno, <b>non entrano nel punteggio composite</b>.
+  <p style="margin:-4px 0 14px;color:#94a3b8;font-size:0.88em">
+    Radar di segnali rari e affidabili — si accendono solo quando c'è qualcosa da notare.
   </p>
 
-  {fng_widget}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:24px">
+    {regime_banner}
+    {pi_cycle_alert}
+    {hash_alert}
+    {golden_death}
+    {divergence_banner}
+    {maturity_alert}
+  </div>
 
-  {news_widget}
+  <p style="margin:8px 0 16px;color:#94a3b8;font-size:0.88em">
+    Le voci seguenti sono <b>informazioni esterne al modello</b>: utili come contorno, <b>non entrano nel punteggio composite</b>.
+  </p>
+
+  {external_widget}
 
   {_section_header("④", "Ha funzionato storicamente?")}
 
@@ -874,15 +1162,13 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     <h2 style="margin:0 0 8px;font-size:1.1em">📈 Come ha funzionato il modello nella storia</h2>
     <p style="margin:0 0 6px;color:#475569;font-size:0.92em">Verifica dell'efficacia storica dei segnali, sovrapposti al prezzo di Bitcoin:</p>
     <ul style="margin:0 0 14px;padding-left:18px;color:#475569;font-size:0.92em;line-height:1.6">
-      <li><b>Minimi di ciclo</b> — ha individuato i bottom 2018, 2020 e 2022 (zone di accumulo)</li>
-      <li><b>Allerta sui massimi</b> — segnalò il top di aprile 2021 (~$62k) prima del calo del −50%</li>
+      <li><b>Minimi di ciclo</b> — ha individuato i bottom 2018, 2020 e 2022: lì indicava la massima intensità di accumulo</li>
+      <li><b>Massimi di ciclo</b> — al top di aprile 2021 (~$62k), prima del calo del −50%, indicava di ridurre l'accumulo al minimo e costituire riserva (senza mai liquidare)</li>
       <li><b>Divergenze RSI (✕)</b> — possibili inversioni di tendenza (verde = al rialzo, rossa = al ribasso)</li>
     </ul>
     {history_chart}
     {_chart_legend()}
   </div>
-
-  {distribution}
 
   {changes_table}
 
