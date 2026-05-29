@@ -378,10 +378,12 @@ def _dca_and_bot_row(result: dict) -> str:
         bot_param = ("Mantieni l'importo della ricorrenza alla <b>quota standard (1,0× il Capitale Base)</b>, "
                      "stessa frequenza. Entità e decisione restano tue.")
 
+    sd = SIGNAL_DETAIL.get(result["signal"], SIGNAL_DETAIL["HOLD"])
+    sig_name = SIGNAL_SHORT_IT.get(result["signal"], result["signal"])
     dca_box = f"""
 <div class="card" style="background:{d['bg']};border-left:4px solid {d['border']};margin-bottom:0;flex:1;min-width:280px">
   <h2 style="margin:0 0 6px;font-size:1.1em;color:{d['color']}">₿ Strategia di accumulo (DCA)</h2>
-  <div style="font-size:1.5em;font-weight:700;color:{d['color']};margin:4px 0">{d['emoji']} DCA {dca['level']}</div>
+  <div style="font-size:1.5em;font-weight:700;color:{sd['color']};margin:4px 0">{sd['emoji']} {sig_name}</div>
   <div style="margin:2px 0 8px"><span style="display:inline-block;white-space:nowrap;font-size:0.78em;font-weight:600;background:{d['border']};color:white;padding:4px 12px;border-radius:12px">{d['tag']}</span></div>
   <div style="color:#475569;font-size:0.92em;line-height:1.5">{dca['reason']}</div>
   <div style="font-size:0.95em;color:#0f172a;margin-top:10px">Quota d'acquisto di oggi: <b>{buy:.1f}×</b> il Capitale Base · <b>{pct}</b> <span style="color:#94a3b8">(es. €{DCA_BASE_AMOUNT} → ~€{amount})</span></div>
@@ -514,6 +516,63 @@ def _news_widget(news: dict | None) -> str:
     ℹ️ Le notizie sono <b>contesto</b>, non un segnale operativo: il sentiment dei titoli è rumoroso e
     <b>non entra nel punteggio composite</b>. Quando una notizia è pubblica, il movimento di prezzo è spesso già avvenuto.
   </p>
+</div>
+"""
+
+
+def _external_widget(fng: dict | None, news: dict | None) -> str:
+    """Widget unico 'contesto esterno' a 2 colonne: Fear&Greed (sx) + sentiment notizie (dx), senza link."""
+    fng_ok = bool(fng and fng.get("available"))
+    news_ok = bool(news and news.get("available"))
+    if not fng_ok and not news_ok:
+        return ""
+
+    if fng_ok:
+        v = fng["value"]
+        if v < 25:
+            vcol, face = "#dc2626", "😱"
+        elif v < 45:
+            vcol, face = "#f97316", "😨"
+        elif v < 55:
+            vcol, face = "#64748b", "😐"
+        elif v < 75:
+            vcol, face = "#22c55e", "🙂"
+        else:
+            vcol, face = "#16a34a", "🤑"
+        left = f"""
+      <div style="font-size:0.74em;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:14px">Fear &amp; Greed Index · emozione della folla</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="font-size:3em;line-height:1">{face}</div>
+        <div>
+          <div style="font-size:1.6em;font-weight:800;color:{vcol};line-height:1.05">{v}<span style="font-size:0.45em;color:#94a3b8;font-weight:600"> /100</span></div>
+          <div style="font-size:1.02em;font-weight:700;color:{vcol}">{fng['classification_it']}</div>
+          <div style="font-size:0.82em;color:#64748b;margin-top:3px">{fng['trend']}</div>
+        </div>
+      </div>
+      <p style="margin:16px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45"><b>Lettura contrarian:</b> la paura estrema ha storicamente coinciso con buone occasioni d'acquisto, l'avidità estrema con i top. Contesto esterno, non entra nel composite.</p>"""
+    else:
+        left = '<div style="color:#94a3b8;font-size:0.9em">Fear &amp; Greed non disponibile.</div>'
+
+    if news_ok:
+        b, n, be = news["bull_pct"], news["neutral_pct"], news["bear_pct"]
+        lab = news["label"]
+        lc = NEWS_LABEL_COLOR.get(lab, "#475569")
+        right = f"""
+      <div style="font-size:0.74em;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:14px">📰 Macro Sentiment</div>
+      <div style="font-size:0.85em;color:#475569">Clima delle notizie di oggi</div>
+      <div style="font-size:1.9em;font-weight:800;color:{lc};line-height:1.1;margin:2px 0 1px">{lab}</div>
+      <div style="font-size:0.8em;color:#94a3b8;margin-bottom:14px">su {news['total']} testate analizzate</div>
+      <div style="font-size:0.9em;color:#475569"><b style="color:#16a34a">🟢 {b}%</b> Bullish · <b style="color:#64748b">⚪ {n}%</b> Neutrale · <b style="color:#dc2626">🔴 {be}%</b> Bearish</div>
+      <p style="margin:16px 0 0;color:#94a3b8;font-size:0.78em;line-height:1.45">Indicazione di massima sul tono dei titoli: contesto, non un segnale. Non entra nel composite.</p>"""
+    else:
+        right = '<div style="color:#94a3b8;font-size:0.9em">Notizie non disponibili al momento.</div>'
+
+    return f"""
+<div class="card">
+  <div style="display:flex;gap:28px;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px">{left}</div>
+    <div style="flex:1;min-width:240px;border-left:1px solid #eef2f7;padding-left:28px">{right}</div>
+  </div>
 </div>
 """
 
@@ -982,8 +1041,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     dca = _dca_and_bot_row(result)
     therm = _thermometer(result)
     indicators = _indicators_table_human(result)
-    fng_widget = _fear_greed_widget(fng)
-    news_widget = _news_widget(news)
+    external_widget = _external_widget(fng, news)
     history_chart = _history_with_signals(history, divergences=divergences) if history is not None else ""
     changes_table = _recent_signal_changes(history) if history is not None else ""
 
@@ -1096,9 +1154,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     Le voci seguenti sono <b>informazioni esterne al modello</b>: utili come contorno, <b>non entrano nel punteggio composite</b>.
   </p>
 
-  {fng_widget}
-
-  {news_widget}
+  {external_widget}
 
   {_section_header("④", "Ha funzionato storicamente?")}
 

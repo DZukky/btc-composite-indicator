@@ -27,7 +27,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_IDS:  ${{ secrets.TELEGRAM_CHAT_IDS }}
           DASHBOARD_URL:      ${{ secrets.DASHBOARD_URL }}
-        run: python -m src.main
+        # --no-telegram: pubblica SOLO la dashboard (Telegram in pausa finché non viene finalizzato il nuovo messaggio)
+        run: python -m src.main --no-telegram
 
       - name: Commit cache + dashboard
         run: |
