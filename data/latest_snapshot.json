@@ -1,31 +1,31 @@
 {
   "date": "2026-05-29",
-  "btc_close": 73421.91,
-  "composite_score": 31.8,
+  "btc_close": 73368.91,
+  "composite_score": 31.79,
   "red_count": 0,
   "green_count": 1,
-  "fav_count": 5,
+  "fav_count": 6,
   "neg_count": 0,
-  "neu_count": 4,
+  "neu_count": 3,
   "signal": "ACCUMULATE",
   "target_btc_exposure_pct": 86.1,
-  "dca_multiplier": 1.288,
+  "dca_multiplier": 1.289,
   "indicators": {
     "pi_cycle": {
-      "value": 0.3863878147405312,
+      "value": 0.3863605308804309,
       "score": 50,
       "zone": "neutral",
       "weight": 0.15
     },
     "mayer": {
-      "value": 0.9198201684597294,
-      "score": 28.67474570840681,
+      "value": 0.9191995873445408,
+      "score": 28.642083544449516,
       "zone": "lime",
       "weight": 0.12
     },
     "two_year_ma": {
-      "value": 0.8390872711654914,
-      "score": 26.149625622514453,
+      "value": 0.8384914650138271,
+      "score": 26.132101912171382,
       "zone": "lime",
       "weight": 0.1
     },
@@ -60,8 +60,8 @@
       "weight": 0.08
     },
     "bmsb": {
-      "value": 0.9478699937543119,
-      "score": 34.57399875086238,
+      "value": 0.9471857687093767,
+      "score": 34.43715374187533,
       "zone": "lime",
       "weight": 0.07
     }
@@ -69,8 +69,8 @@
   "regime": "BULL",
   "regime_correction": true,
   "sma_200w": 61604.15854999999,
-  "sma_200d": 79822.02665,
-  "dist_200d_pct": -8.0,
+  "sma_200d": 79818.2582,
+  "dist_200d_pct": -8.1,
   "dca": {
     "level": "SOSTENUTO",
     "reason": "Fase di accumulo favorevole su livelli storicamente solidi (composite basso). Il prezzo \u00e8 8% sotto la media a 200 giorni.",
@@ -80,6 +80,6 @@
   "last_divergence": null,
   "last_divergence_date": null,
   "last_divergence_age_days": null,
-  "dca_buy_factor": 1.288,
+  "dca_buy_factor": 1.289,
   "reserve_balance": 0.0
 }
