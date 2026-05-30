@@ -1,6 +1,6 @@
 {
   "date": "2026-05-30",
-  "btc_close": 73462.35,
+  "btc_close": 73479.85,
   "composite_score": 31.01,
   "red_count": 0,
   "green_count": 1,
@@ -12,20 +12,20 @@
   "dca_multiplier": 1.25,
   "indicators": {
     "pi_cycle": {
-      "value": 0.38688965811470905,
+      "value": 0.38691702704339653,
       "score": 50,
       "zone": "neutral",
       "weight": 0.15
     },
     "mayer": {
-      "value": 0.9220774118594491,
-      "score": 28.793547992602587,
+      "value": 0.9222533307501821,
+      "score": 28.802806881588534,
       "zone": "lime",
       "weight": 0.12
     },
     "two_year_ma": {
-      "value": 0.8394918936828814,
-      "score": 26.161526284790625,
+      "value": 0.8396819426444602,
+      "score": 26.16711596013118,
       "zone": "lime",
       "weight": 0.1
     },
@@ -60,8 +60,8 @@
       "weight": 0.08
     },
     "bmsb": {
-      "value": 0.9483920703735039,
-      "score": 34.67841407470078,
+      "value": 0.9486179937373976,
+      "score": 34.72359874747953,
       "zone": "lime",
       "weight": 0.07
     }
@@ -69,7 +69,7 @@
   "regime": "BULL",
   "regime_correction": true,
   "sma_200w": 61604.15854999999,
-  "sma_200d": 79670.48,
+  "sma_200d": 79674.2582,
   "dist_200d_pct": -7.8,
   "dca": {
     "level": "SOSTENUTO",

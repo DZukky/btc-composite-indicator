@@ -1043,7 +1043,12 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     indicators = _indicators_table_human(result)
     external_widget = _external_widget(fng, news)
     history_chart = _history_with_signals(history, divergences=divergences) if history is not None else ""
-    changes_table = _recent_signal_changes(history) if history is not None else ""
+    # Tabella "Il modello alla prova" DISATTIVATA (scelta Davide 2026-05-30): il test
+    # direzionale ✅/❌ giudica un modello di ACCUMULO come se predicesse il prezzo a
+    # 30/90gg — frame sbagliato (la validazione vera è il backtest sui cicli). La
+    # funzione _recent_signal_changes() è conservata: per riattivarla, ripristina la
+    # riga sotto a `_recent_signal_changes(history) if history is not None else ""`.
+    changes_table = ""
 
     btc_price = result["btc_close"]
     btc_price_str = f"${btc_price:,.0f}" if btc_price else "n/a"
