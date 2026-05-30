@@ -54,6 +54,25 @@ DCA_MULT_MIN = 0.6        # BTC molto caro → compra ~0,6× la cifra base (e ac
 DCA_MULT_MAX = 1.4        # BTC molto conveniente → compra ~1,4× la cifra base
 DCA_RESERVE_CAP = 30.0    # tetto al salvadanaio (multipli di cifra base): max "polvere da sparo" realistica
 
+# --- 5 scaglioni fissi (sostituiscono la curva continua) ------------------
+# PERCHÉ: un moltiplicatore continuo cambiava di un'inezia ogni giorno
+# (1,29 → 1,28 → 1,30): inutilizzabile per chi programma un acquisto ricorrente.
+# Ora il moltiplicatore è un valore FERMO per ciascuno dei 5 segnali, e cambia
+# SOLO quando il segnale cambia. Il segnale ha già l'isteresi (decide_signal,
+# margine 5) → niente sfarfallio al confine delle soglie.
+# Le 5 fasce coincidono con i 5 segnali e con le 5 etichette già mostrate in
+# dashboard (ACCUMULO AGGRESSIVO / INCREMENTALE / STANDARD / RIDOTTO / MINIMO).
+# AGGRESSIVITÀ: i 5 valori sono equidistanti tra DCA_MULT_MIN e DCA_MULT_MAX;
+# per renderla più/meno aggressiva basta cambiare quei due numeri sopra.
+def _dca_bracket_values(mmin: float, mmax: float, n: int = 5) -> list:
+    step = (mmax - mmin) / (n - 1)
+    return [round(mmax - i * step, 3) for i in range(n)]  # da "compra di più" a "compra di meno"
+
+DCA_SIGNAL_MULT = dict(zip(
+    ["STRONG_BUY", "ACCUMULATE", "HOLD", "DERISK", "STRONG_SELL"],
+    _dca_bracket_values(DCA_MULT_MIN, DCA_MULT_MAX),
+))  # → {STRONG_BUY:1.4, ACCUMULATE:1.2, HOLD:1.0, DERISK:0.8, STRONG_SELL:0.6}
+
 EMAIL_TO = "info@ghostly.biz"
 EMAIL_FROM = "btc-tool@resend.dev"
 EMAIL_SUBJECT_PREFIX = "[BTC Composite]"

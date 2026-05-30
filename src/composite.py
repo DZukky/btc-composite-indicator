@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 from .config import (INDICATOR_WEIGHTS, INDICATOR_THRESHOLDS, COMPOSITE_TRIGGERS,
-                     DCA_MULT_MIN, DCA_MULT_MAX, DCA_RESERVE_CAP)
+                     DCA_MULT_MIN, DCA_MULT_MAX, DCA_RESERVE_CAP, DCA_SIGNAL_MULT)
 
 
 def apply_reserve(mult: float, reserve: float, cap: float = DCA_RESERVE_CAP) -> tuple[float, float]:
@@ -166,12 +166,11 @@ def composite_score(snap: dict, prev_signal: str | None = None) -> dict:
 
     target_pct = 100.0 / (1 + math.exp((composite - 50) / 10.0))
 
-    # Moltiplicatore di acquisto DCA (flusso). Stessa curva sigmoide, compressa nella
-    # fascia [MIN, MAX] centrata su 1.0 a composite 50: BTC conveniente → >1, caro → <1.
-    _center = (DCA_MULT_MIN + DCA_MULT_MAX) / 2.0
-    _half = (DCA_MULT_MAX - DCA_MULT_MIN) / 2.0
-    dca_multiplier = _center + (target_pct / 50.0 - 1.0) * _half
-    dca_multiplier = max(DCA_MULT_MIN, min(DCA_MULT_MAX, dca_multiplier))
+    # Moltiplicatore di acquisto DCA a 5 SCAGLIONI FISSI (non più curva continua).
+    # Un valore fermo per ciascuno dei 5 segnali → cambia solo quando cambia il
+    # segnale, che ha già l'isteresi: niente sfarfallio quotidiano (1,29→1,28).
+    # L'aggressività delle fasce si ritara da DCA_MULT_MIN/MAX in config.py.
+    dca_multiplier = DCA_SIGNAL_MULT.get(signal, 1.0)
 
     # Consiglio DCA derivato dal composite (riusa i 9 indicatori, non solo la 200-SMA)
     dist200 = snap.get("dist_200d_pct")
