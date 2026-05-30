@@ -21,7 +21,10 @@ import numpy as np
 import pandas as pd
 
 from .config import (INDICATOR_WEIGHTS, INDICATOR_THRESHOLDS, COMPOSITE_TRIGGERS,
-                     DCA_MULT_MIN, DCA_MULT_MAX, DCA_RESERVE_CAP, DCA_SIGNAL_MULT)
+                     DCA_MULT_MIN, DCA_MULT_MAX, DCA_RESERVE_CAP,
+                     DCA_TIER_MULT, DCA_TIER_LADDER, DCA_PCT_WINDOW,
+                     DCA_TIER_DWELL_DAYS, DCA_REGIME_OVERLAY, DCA_SMA_REGIME_DAYS,
+                     DCA_PCT_AGGR, DCA_PCT_INCR, DCA_PCT_RID, DCA_PCT_MIN)
 
 
 def apply_reserve(mult: float, reserve: float, cap: float = DCA_RESERVE_CAP) -> tuple[float, float]:
@@ -166,11 +169,10 @@ def composite_score(snap: dict, prev_signal: str | None = None) -> dict:
 
     target_pct = 100.0 / (1 + math.exp((composite - 50) / 10.0))
 
-    # Moltiplicatore di acquisto DCA a 5 SCAGLIONI FISSI (non più curva continua).
-    # Un valore fermo per ciascuno dei 5 segnali → cambia solo quando cambia il
-    # segnale, che ha già l'isteresi: niente sfarfallio quotidiano (1,29→1,28).
-    # L'aggressività delle fasce si ritara da DCA_MULT_MIN/MAX in config.py.
-    dca_multiplier = DCA_SIGNAL_MULT.get(signal, 1.0)
+    # Moltiplicatore PROVVISORIO (fallback). Il valore vero è assegnato da
+    # assign_dca_tiers() che usa il percentile mobile + isteresi: serve la storia,
+    # qui non è disponibile. main.py/compute_history sovrascrivono signal+multiplier.
+    dca_multiplier = DCA_TIER_MULT.get(signal, 1.0)
 
     # Consiglio DCA derivato dal composite (riusa i 9 indicatori, non solo la 200-SMA)
     dist200 = snap.get("dist_200d_pct")
@@ -227,8 +229,103 @@ def composite_score(snap: dict, prev_signal: str | None = None) -> dict:
     }
 
 
+def walk_forward_percentile(scores, win: int = DCA_PCT_WINDOW):
+    """Rango percentile (0-100) di scores[t] nella finestra mobile [t-win+1 : t].
+
+    WALK-FORWARD STRETTO: al giorno t usa SOLO dati <= t (nessun look-ahead).
+    Espandente finché ci sono < win giorni, poi rolling a `win`.
+    """
+    import numpy as np
+    s = np.asarray(scores, dtype=float)
+    n = len(s)
+    out = np.full(n, 50.0)
+    for t in range(n):
+        lo = max(0, t - win + 1)
+        window = s[lo:t + 1]
+        out[t] = float((window <= s[t]).mean() * 100.0)
+    return out
+
+
+def raw_tier(pct: float, composite: float, green: int, bear: bool) -> str:
+    """Fascia 'istantanea' dal percentile + hybrid gate sugli estremi + overlay 200gg.
+
+    Gli estremi (AGGRESSIVO/MINIMO) richiedono percentile estremo E conferma
+    assoluta (e ≥4 verdi per l'AGGRESSIVO): evita di inventare segnali nei mercati
+    piatti, dove il percentile da solo tratterebbe il minimo locale come 'occasione'.
+    Se il gate non passa, si scala alla fascia adiacente meno estrema.
+    """
+    if pct <= DCA_PCT_AGGR and composite <= 35 and green >= 4:
+        tier = "STRONG_BUY"
+    elif pct <= DCA_PCT_INCR:
+        tier = "ACCUMULATE"
+    elif pct < DCA_PCT_RID:
+        tier = "HOLD"
+    elif pct >= DCA_PCT_MIN and composite >= 65:
+        tier = "STRONG_SELL"
+    elif pct >= DCA_PCT_RID:
+        tier = "DERISK"
+    else:
+        tier = "HOLD"
+
+    # Overlay di regime: sotto la media 200gg (zona di valore storica) sposta la
+    # scala di UNA tacca verso l'accumulo. Unica regola di regime, parameter-free.
+    # CAP: l'overlay può spingere al massimo fino ad ACCUMULATE — gli ESTREMI
+    # (AGGRESSIVO/MINIMO) restano solo-gate, così l'overlay non fabbrica un estremo
+    # spurio (es. composite 31 con 1 solo verde NON deve diventare 1.5×). Mai declassa.
+    if bear and DCA_REGIME_OVERLAY:
+        i = DCA_TIER_LADDER.index(tier)
+        cap = DCA_TIER_LADDER.index("ACCUMULATE")
+        tier = DCA_TIER_LADDER[max(i, min(i + 1, cap))]
+    return tier
+
+
+def assign_dca_tiers(history: "pd.DataFrame") -> "pd.DataFrame":
+    """Assegna fascia DCA (=`signal`), moltiplicatore, percentile e riserva.
+
+    Pipeline (sequenziale, deterministica → ricomputabile ogni giorno senza drift):
+      1. percentile walk-forward del composite (4 anni)
+      2. media 200gg dal prezzo → contesto bull/bear per l'overlay
+      3. fascia istantanea (raw_tier) con hybrid gate + overlay
+      4. PERMANENZA MINIMA: una volta in una fascia ci resti almeno
+         DCA_TIER_DWELL_DAYS giorni prima di poter cambiare (stabilità: poche
+         variazioni l'anno invece di sfarfallio quotidiano)
+      5. moltiplicatore dalla fascia + salvadanaio informativo (apply_reserve)
+    """
+    import numpy as np
+    import pandas as pd
+
+    h = history.sort_values("date").reset_index(drop=True).copy()
+    scores = h["composite_score"].values
+    pct = walk_forward_percentile(scores)
+    close = h["btc_close"].values
+    sma = pd.Series(close).rolling(DCA_SMA_REGIME_DAYS, min_periods=1).mean().values
+    green = h["green_count"].values if "green_count" in h else np.zeros(len(h))
+
+    levels, mults, buys, reserves = [], [], [], []
+    cur, days_in, reserve = None, 0, 0.0
+    for i in range(len(h)):
+        bear = bool(close[i] < sma[i])
+        proposed = raw_tier(float(pct[i]), float(scores[i]), int(green[i]), bear)
+        if cur is None:
+            cur, days_in = proposed, 0
+        elif proposed != cur and days_in >= DCA_TIER_DWELL_DAYS:
+            cur, days_in = proposed, 0
+        else:
+            days_in += 1
+        mult = DCA_TIER_MULT[cur]
+        buy, reserve = apply_reserve(mult, reserve)
+        levels.append(cur); mults.append(mult); buys.append(buy); reserves.append(reserve)
+
+    h["signal"] = levels
+    h["dca_percentile"] = np.round(pct, 1)
+    h["dca_multiplier"] = mults
+    h["dca_buy_factor"] = buys
+    h["reserve_balance"] = np.round(reserves, 3)
+    return h
+
+
 def compute_history(ind_df) -> "pd.DataFrame":
-    """Applica composite_score ad ogni riga della time series.
+    """Costruisce la time series del composite, poi assegna le fasce DCA a percentile.
 
     Salta le righe in cui troppi indicatori sono NaN (es. inizio storia,
     quando le medie mobili lunghe non sono ancora calcolabili).
@@ -240,8 +337,6 @@ def compute_history(ind_df) -> "pd.DataFrame":
                  "hr_cross_buy", "bmsb", "close"]
 
     out = []
-    prev_signal = None  # stato per l'isteresi, si propaga giorno per giorno
-    reserve = 0.0       # salvadanaio DCA (unità di cifra base), si propaga sequenzialmente
     for _, r in ind_df.iterrows():
         snap = {"date": r["date"].date().isoformat()}
         non_na = 0
@@ -261,23 +356,18 @@ def compute_history(ind_df) -> "pd.DataFrame":
         if non_na < 5:
             continue
 
-        res = composite_score(snap, prev_signal=prev_signal)
-        prev_signal = res["signal"]  # isteresi: lo stato si propaga al giorno dopo
-        buy_factor, reserve = apply_reserve(res["dca_multiplier"], reserve)
+        res = composite_score(snap)
         out.append({
             "date":                 pd.to_datetime(res["date"]),
             "btc_close":            res["btc_close"],
             "composite_score":      res["composite_score"],
-            "signal":               res["signal"],
             "target_btc_exposure_pct": res["target_btc_exposure_pct"],
-            "dca_multiplier":       res["dca_multiplier"],
-            "dca_buy_factor":       buy_factor,
-            "reserve_balance":      reserve,
             "red_count":            res["red_count"],
             "green_count":          res["green_count"],
         })
 
-    return pd.DataFrame(out)
+    # Fasce DCA (signal, moltiplicatore, percentile, riserva) calcolate sulla serie completa.
+    return assign_dca_tiers(pd.DataFrame(out))
 
 
 SIGNAL_DESCRIPTIONS = {

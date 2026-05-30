@@ -9,7 +9,7 @@
   "neu_count": 3,
   "signal": "ACCUMULATE",
   "target_btc_exposure_pct": 87.0,
-  "dca_multiplier": 1.2,
+  "dca_multiplier": 1.25,
   "indicators": {
     "pi_cycle": {
       "value": 0.38688851065236707,
@@ -80,6 +80,7 @@
   "last_divergence": null,
   "last_divergence_date": null,
   "last_divergence_age_days": null,
-  "dca_buy_factor": 1.2,
-  "reserve_balance": 0.0
+  "dca_buy_factor": 1.25,
+  "reserve_balance": 0.0,
+  "dca_percentile": 33.8
 }

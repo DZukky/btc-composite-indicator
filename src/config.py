@@ -54,24 +54,45 @@ DCA_MULT_MIN = 0.6        # BTC molto caro → compra ~0,6× la cifra base (e ac
 DCA_MULT_MAX = 1.4        # BTC molto conveniente → compra ~1,4× la cifra base
 DCA_RESERVE_CAP = 30.0    # tetto al salvadanaio (multipli di cifra base): max "polvere da sparo" realistica
 
-# --- 5 scaglioni fissi (sostituiscono la curva continua) ------------------
-# PERCHÉ: un moltiplicatore continuo cambiava di un'inezia ogni giorno
-# (1,29 → 1,28 → 1,30): inutilizzabile per chi programma un acquisto ricorrente.
-# Ora il moltiplicatore è un valore FERMO per ciascuno dei 5 segnali, e cambia
-# SOLO quando il segnale cambia. Il segnale ha già l'isteresi (decide_signal,
-# margine 5) → niente sfarfallio al confine delle soglie.
-# Le 5 fasce coincidono con i 5 segnali e con le 5 etichette già mostrate in
-# dashboard (ACCUMULO AGGRESSIVO / INCREMENTALE / STANDARD / RIDOTTO / MINIMO).
-# AGGRESSIVITÀ: i 5 valori sono equidistanti tra DCA_MULT_MIN e DCA_MULT_MAX;
-# per renderla più/meno aggressiva basta cambiare quei due numeri sopra.
-def _dca_bracket_values(mmin: float, mmax: float, n: int = 5) -> list:
-    step = (mmax - mmin) / (n - 1)
-    return [round(mmax - i * step, 3) for i in range(n)]  # da "compra di più" a "compra di meno"
+# --- Fasce DCA a PERCENTILE MOBILE (walk-forward) -------------------------
+# PERCHÉ il cambio (redesign 2026-05-30, validato da second opinion): con soglie
+# ASSOLUTE 0-100 il moltiplicatore, post-ETF, restava inchiodato a 1.0× perché lo
+# score si comprime nella fascia centrale (mai sopra 75, quasi mai sotto 20). Fix
+# adottato anche da Glassnode su MVRV (gen 2025): mappare il RANGO dello score nella
+# storia recente, non il livello grezzo. Così lo strumento modula anche quando lo
+# score grezzo non esce dalla fascia centrale.
+#
+# Le 5 fasce riusano le stesse 5 chiavi-segnale → SIGNAL_DETAIL/etichette in
+# reporter restano valide (ACCUMULO AGGRESSIVO / INCREMENTALE / STANDARD / RIDOTTO
+# / MINIMO). Il `signal` mostrato diventa la FASCIA (azione); lo score 0-100 resta
+# il numero di contesto.
+#
+# AGGRESSIVITÀ dolce 0.5–1.5 (la ricerca sconsiglia di allargare: ~2% di edge in
+# più nel raro crollo a fronte del doppio del danno nei tori). Ritarabile qui.
+DCA_TIER_MULT = {
+    "STRONG_BUY":  1.5,   # ACCUMULO AGGRESSIVO
+    "ACCUMULATE":  1.25,  # ACCUMULO INCREMENTALE
+    "HOLD":        1.0,   # ACCUMULO STANDARD
+    "DERISK":      0.75,  # RIDOTTO
+    "STRONG_SELL": 0.5,   # MINIMO
+}
+# Ordine fascia da "compra di meno" a "compra di più" (per l'overlay di regime).
+DCA_TIER_LADDER = ["STRONG_SELL", "DERISK", "HOLD", "ACCUMULATE", "STRONG_BUY"]
 
-DCA_SIGNAL_MULT = dict(zip(
-    ["STRONG_BUY", "ACCUMULATE", "HOLD", "DERISK", "STRONG_SELL"],
-    _dca_bracket_values(DCA_MULT_MIN, DCA_MULT_MAX),
-))  # → {STRONG_BUY:1.4, ACCUMULATE:1.2, HOLD:1.0, DERISK:0.8, STRONG_SELL:0.6}
+DCA_PCT_WINDOW = 1460        # finestra percentile: 4 anni (~1 ciclo halving); espandente finché < win
+DCA_TIER_DWELL_DAYS = 21     # permanenza minima in una fascia prima di poter cambiare (stabilità)
+DCA_REGIME_OVERLAY = False   # overlay 200gg DISATTIVATO: il backtest A/B mostra che PEGGIORA ogni metrica
+                             # (drag −5.9% vs −4.1%, crollo +7.0% vs +8.1%): la 200gg è troppo veloce, in
+                             # un toro BTC va spesso sotto durante correzioni sane → compra di più prima del
+                             # rialzo. Conferma il warning della ricerca (regime su 3 cicli = overfitting).
+                             # Lasciato come flag: rimetti True per riattivarlo.
+DCA_SMA_REGIME_DAYS = 200
+# Soglie percentile (0-100) per le 5 fasce; gli estremi hanno un hybrid gate
+# (percentile estremo AND conferma assoluta) per non inventare segnali nei piatti.
+DCA_PCT_AGGR = 10            # ≤10° pct → AGGRESSIVO   (gate: composite ≤35 e ≥4 indicatori verdi)
+DCA_PCT_INCR = 30            # ≤30° pct → INCREMENTALE
+DCA_PCT_RID = 70            # ≥70° pct → RIDOTTO
+DCA_PCT_MIN = 90            # ≥90° pct → MINIMO       (gate: composite ≥65)
 
 EMAIL_TO = "info@ghostly.biz"
 EMAIL_FROM = "btc-tool@resend.dev"

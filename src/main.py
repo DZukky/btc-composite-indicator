@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 from .config import DATA_DIR
 from .fetchers import fetch_all, fetch_btc_price_daily, fetch_hash_rate, fetch_bitcoin_data_metric, BITCOIN_DATA_METRICS
 from .indicators import build_indicators, snapshot, compute_rsi_divergences
-from .composite import composite_score, compute_history, apply_reserve
+from .composite import composite_score, compute_history, assign_dca_tiers
 from .reporter import build_dashboard
 from . import telegram_bot
 
@@ -63,44 +63,37 @@ def main():
     divergences = compute_rsi_divergences(data["price"])
     snap = snapshot(ind_df, divergences=divergences)
 
-    # Storico (con isteresi sequenziale). Serve PRIMA del segnale di oggi
-    # perché l'isteresi dipende dal segnale di ieri.
+    # Composite di oggi (score, conteggi). signal+moltiplicatore vengono assegnati
+    # sotto dalle FASCE a percentile, che richiedono l'intera storia.
+    result = composite_score(snap)
+
+    # Storico → assegnazione fasce DCA a percentile mobile (sequenziale, no look-ahead).
+    base_cols = ["date", "btc_close", "composite_score",
+                 "target_btc_exposure_pct", "red_count", "green_count"]
     if args.no_backfill and HISTORY_FILE.exists():
         history = pd.read_csv(HISTORY_FILE, parse_dates=["date"])
-        prev_signal = str(history["signal"].iloc[-1]) if len(history) else None
-        result = composite_score(snap, prev_signal=prev_signal)
-        # salvadanaio: riprendi l'ultimo saldo noto e applica il giorno di oggi
-        prev_reserve = (float(history["reserve_balance"].iloc[-1])
-                        if "reserve_balance" in history.columns and len(history)
-                        and pd.notna(history["reserve_balance"].iloc[-1]) else 0.0)
-        buy_factor, reserve = apply_reserve(result["dca_multiplier"], prev_reserve)
-        result["dca_buy_factor"] = buy_factor
-        result["reserve_balance"] = reserve
         today_row = pd.DataFrame([{
             "date": pd.to_datetime(result["date"]),
             "btc_close": result["btc_close"],
             "composite_score": result["composite_score"],
-            "signal": result["signal"],
             "target_btc_exposure_pct": result["target_btc_exposure_pct"],
-            "dca_multiplier": result["dca_multiplier"],
-            "dca_buy_factor": buy_factor,
-            "reserve_balance": reserve,
             "red_count": result["red_count"],
             "green_count": result["green_count"],
         }])
-        history = pd.concat([history, today_row]).drop_duplicates(subset=["date"], keep="last")
+        base = pd.concat([history[base_cols], today_row]).drop_duplicates(subset=["date"], keep="last")
+        history = assign_dca_tiers(base)
     else:
-        print("[backfill] calcolo composite storico (con isteresi) per tutta la time series...")
+        print("[backfill] calcolo composite storico + fasce a percentile per tutta la time series...")
         history = compute_history(ind_df)
-        prev_signal = str(history["signal"].iloc[-2]) if len(history) >= 2 else None
-        result = composite_score(snap, prev_signal=prev_signal)
-        # Riserva: parti dal saldo del giorno PRIMA e applica il moltiplicatore di OGGI
-        # (preso da snap → coerente con il composite mostrato in result).
-        prev_reserve = float(history["reserve_balance"].iloc[-2]) if len(history) >= 2 else 0.0
-        buy_factor, reserve = apply_reserve(result["dca_multiplier"], prev_reserve)
-        result["dca_buy_factor"] = buy_factor
-        result["reserve_balance"] = reserve
         print(f"  → {len(history)} giorni, da {history['date'].min().date()} a {history['date'].max().date()}")
+
+    # Campi DCA di OGGI presi dall'ultima riga delle fasce → coerenza totale con la storia.
+    last = history.sort_values("date").iloc[-1]
+    result["signal"] = str(last["signal"])
+    result["dca_multiplier"] = float(last["dca_multiplier"])
+    result["dca_buy_factor"] = float(last["dca_buy_factor"])
+    result["reserve_balance"] = float(last["reserve_balance"])
+    result["dca_percentile"] = float(last["dca_percentile"])
 
     # News + Fear&Greed (server-side, contesto esterno). Non far mai fallire la pipeline.
     try:

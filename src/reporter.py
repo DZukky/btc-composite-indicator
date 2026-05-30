@@ -27,7 +27,7 @@ def _buy_numbers(result: dict):
       - riserva_display: salvadanaio in multipli di Capitale Base, arrotondato a 0,1×
     """
     raw = float(result.get("dca_buy_factor", result.get("dca_multiplier", 1.0)))
-    buy = round(raw, 1)
+    buy = round(raw, 2)  # fasce discrete pulite (0.5/0.75/1.0/1.25/1.5): mostro il valore esatto
     amount = round(DCA_BASE_AMOUNT * buy)
     delta = round((buy - 1.0) * 100)
     pct = f"+{delta}%" if delta > 0 else (f"−{abs(delta)}%" if delta < 0 else "in linea")
@@ -128,9 +128,9 @@ def _hero_banner(result: dict, prev_buy: float | None = None) -> str:
     if prev_buy is None or abs(buy - prev_buy) < 0.05:
         var_chip = f'<div style="{chip} #bbf7d0;background:#f0fdf4;color:#15803d">✓ Invariata · nessuna modifica da fare</div>'
     elif buy > prev_buy:
-        var_chip = f'<div style="{chip} #86efac;background:#dcfce7;color:#15803d">↑ Aumentata da {prev_buy:.1f}× · aggiorna il ricorrente</div>'
+        var_chip = f'<div style="{chip} #86efac;background:#dcfce7;color:#15803d">↑ Aumentata da {prev_buy:g}× · aggiorna il ricorrente</div>'
     else:
-        var_chip = f'<div style="{chip} #fed7aa;background:#fff7ed;color:#c2410c">↓ Ridotta da {prev_buy:.1f}× · aggiorna il ricorrente</div>'
+        var_chip = f'<div style="{chip} #fed7aa;background:#fff7ed;color:#c2410c">↓ Ridotta da {prev_buy:g}× · aggiorna il ricorrente</div>'
 
     reserve_line = ""
     if reserve >= 0.05:
@@ -148,7 +148,7 @@ def _hero_banner(result: dict, prev_buy: float | None = None) -> str:
     </div>
     <div class="hero-right" style="text-align:right;min-width:200px">
       <div style="font-size:0.85em;color:{detail['color']};opacity:0.85;text-transform:uppercase;letter-spacing:1px">Quota d'acquisto odierna</div>
-      <div class="big-target" style="font-size:3.4em;font-weight:800;color:{detail['color']};line-height:1">{buy:.1f}×</div>
+      <div class="big-target" style="font-size:3.4em;font-weight:800;color:{detail['color']};line-height:1">{buy:g}×</div>
       {var_chip}
       <div style="font-size:0.8em;color:#475569;margin-top:8px;line-height:1.4">
         il <b>Capitale Base</b> · <b style="color:{detail['color']}">{pct}</b> sulla quota standard<br>
@@ -246,7 +246,7 @@ def _action_box(result: dict) -> str:
     detail = SIGNAL_DETAIL.get(result["signal"], SIGNAL_DETAIL["HOLD"])
     buy, pct, amount, reserve = _buy_numbers(result)
 
-    base = (f"<b>Quota d'acquisto di oggi: ≈ {buy:.1f}× il Capitale Base</b> "
+    base = (f"<b>Quota d'acquisto di oggi: ≈ {buy:g}× il Capitale Base</b> "
             f"({pct}; es. €{DCA_BASE_AMOUNT} → <b>~€{amount}</b>). L'accumulo prosegue senza interruzioni; nessuna liquidazione delle posizioni.")
     saved = (f"<b>Riserva di capitale</b>: ≈ {reserve:.1f}× il Capitale Base accantonato, da impiegare nelle fasi di sottovalutazione."
              if reserve >= 0.05 else
@@ -367,11 +367,11 @@ def _dca_and_bot_row(result: dict) -> str:
 
     # Parametro operativo REALE per il box bot (sostituisce l'esempio astratto "+10-20%")
     if buy > 1.0:
-        bot_param = (f"Imposta l'importo della singola ricorrenza a <b>≈{buy:.1f}× il Capitale Base</b> "
+        bot_param = (f"Imposta l'importo della singola ricorrenza a <b>≈{buy:g}× il Capitale Base</b> "
                      f"({pct}; es. <b>€{amount}</b> con base €{DCA_BASE_AMOUNT}), mantenendo la stessa frequenza. "
                      f"Entità e decisione restano tue.")
     elif buy < 1.0:
-        bot_param = (f"Riduci l'importo della singola ricorrenza a <b>≈{buy:.1f}× il Capitale Base</b> "
+        bot_param = (f"Riduci l'importo della singola ricorrenza a <b>≈{buy:g}× il Capitale Base</b> "
                      f"({pct}; es. <b>€{amount}</b> con base €{DCA_BASE_AMOUNT}), stessa frequenza; "
                      f"la quota non investita confluisce nella riserva di capitale. Entità e decisione restano tue.")
     else:
@@ -386,7 +386,7 @@ def _dca_and_bot_row(result: dict) -> str:
   <div style="font-size:1.5em;font-weight:700;color:{sd['color']};margin:4px 0">{sd['emoji']} {sig_name}</div>
   <div style="margin:2px 0 8px"><span style="display:inline-block;white-space:nowrap;font-size:0.78em;font-weight:600;background:{d['border']};color:white;padding:4px 12px;border-radius:12px">{d['tag']}</span></div>
   <div style="color:#475569;font-size:0.92em;line-height:1.5">{dca['reason']}</div>
-  <div style="font-size:0.95em;color:#0f172a;margin-top:10px">Quota d'acquisto di oggi: <b>{buy:.1f}×</b> il Capitale Base · <b>{pct}</b> <span style="color:#94a3b8">(es. €{DCA_BASE_AMOUNT} → ~€{amount})</span></div>
+  <div style="font-size:0.95em;color:#0f172a;margin-top:10px">Quota d'acquisto di oggi: <b>{buy:g}×</b> il Capitale Base · <b>{pct}</b> <span style="color:#94a3b8">(es. €{DCA_BASE_AMOUNT} → ~€{amount})</span></div>
   {reserve_html}
   {ref}
 </div>"""
@@ -846,7 +846,7 @@ def _explain_target(result: dict) -> str:
   <p style="margin:0;color:#1e3a8a;font-size:0.92em;line-height:1.55">
     Il riferimento è il <b>Capitale Base</b>: la quota d'acquisto standard che destini periodicamente a BTC
     (es. €{DCA_BASE_AMOUNT} — parametro personale).<br><br>
-    Il valore <b>{buy:.1f}×</b> ({pct}) è il <b>fattore di modulazione</b> applicato al Capitale Base: oggi indica un impiego
+    Il valore <b>{buy:g}×</b> ({pct}) è il <b>fattore di modulazione</b> applicato al Capitale Base: oggi indica un impiego
     {('superiore' if buy > 1 else 'inferiore' if buy < 1 else 'pari')} alla quota standard
     (es. €{DCA_BASE_AMOUNT} → ~€{amount}). Nelle fasi di sopravvalutazione l'intensità si riduce e la quota non investita
     confluisce nella <b>riserva di capitale</b>; nelle fasi di sottovalutazione l'intensità aumenta, attingendo alla riserva.
@@ -1028,7 +1028,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
     prev_buy = None
     if history is not None and "dca_buy_factor" in history.columns and len(history) >= 2:
         try:
-            prev_buy = round(float(history["dca_buy_factor"].iloc[-2]), 1)
+            prev_buy = round(float(history["dca_buy_factor"].iloc[-2]), 2)
         except Exception:
             prev_buy = None
     hero = _hero_banner(result, prev_buy=prev_buy)
