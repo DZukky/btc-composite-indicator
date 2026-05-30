@@ -1,7 +1,7 @@
 {
   "date": "2026-05-30",
-  "btc_close": 73463.97,
-  "composite_score": 31.01,
+  "btc_close": 73419.15,
+  "composite_score": 31.0,
   "red_count": 0,
   "green_count": 1,
   "fav_count": 6,
@@ -12,20 +12,20 @@
   "dca_multiplier": 1.25,
   "indicators": {
     "pi_cycle": {
-      "value": 0.3868897167917011,
+      "value": 0.38688809339278474,
       "score": 50,
       "zone": "neutral",
       "weight": 0.15
     },
     "mayer": {
-      "value": 0.9220976518656473,
-      "score": 28.794613256086702,
+      "value": 0.9215376768426421,
+      "score": 28.765140886454848,
       "zone": "lime",
       "weight": 0.12
     },
     "two_year_ma": {
-      "value": 0.8395103849627684,
-      "score": 26.162070145963774,
+      "value": 0.8389987925399206,
+      "score": 26.147023309997664,
       "zone": "lime",
       "weight": 0.1
     },
@@ -60,8 +60,8 @@
       "weight": 0.08
     },
     "bmsb": {
-      "value": 0.9484129844220472,
-      "score": 34.68259688440945,
+      "value": 0.9478343624123491,
+      "score": 34.56687248246982,
       "zone": "lime",
       "weight": 0.07
     }
@@ -69,7 +69,7 @@
   "regime": "BULL",
   "regime_correction": true,
   "sma_200w": 61604.15854999999,
-  "sma_200d": 79670.4881,
+  "sma_200d": 79670.26400000001,
   "dist_200d_pct": -7.8,
   "dca": {
     "level": "SOSTENUTO",
@@ -82,5 +82,5 @@
   "last_divergence_age_days": null,
   "dca_buy_factor": 1.25,
   "reserve_balance": 0.0,
-  "dca_percentile": 33.8
+  "dca_percentile": 33.7
 }
