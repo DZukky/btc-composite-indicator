@@ -27,8 +27,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_IDS:  ${{ secrets.TELEGRAM_CHAT_IDS }}
           DASHBOARD_URL:      ${{ secrets.DASHBOARD_URL }}
-        # --no-telegram: pubblica SOLO la dashboard (Telegram in pausa finché non viene finalizzato il nuovo messaggio)
-        run: python -m src.main --no-telegram
+        # Caffè quotidiano RIATTIVATO: l'invio Telegram è regolato da TELEGRAM_RESUME_DATE
+        # in config.py (muto fino al 2026-06-03 incluso ponte 2 giugno, poi parte ogni giorno).
+        run: python -m src.main
 
       - name: Commit cache + dashboard
         run: |

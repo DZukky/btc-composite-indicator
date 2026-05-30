@@ -94,6 +94,11 @@ DCA_PCT_INCR = 30            # ≤30° pct → INCREMENTALE
 DCA_PCT_RID = 70            # ≥70° pct → RIDOTTO
 DCA_PCT_MIN = 90            # ≥90° pct → MINIMO       (gate: composite ≥65)
 
+# Riapertura del Caffè quotidiano su Telegram: muto fino a questa data (incl. ponte
+# 2 giugno 2026), poi i messaggi giornalieri automatici ripartono. Metti None per
+# nessun blocco (invia sempre), o sposta la data per ritardare ancora.
+TELEGRAM_RESUME_DATE = "2026-06-03"
+
 EMAIL_TO = "info@ghostly.biz"
 EMAIL_FROM = "btc-tool@resend.dev"
 EMAIL_SUBJECT_PREFIX = "[BTC Composite]"

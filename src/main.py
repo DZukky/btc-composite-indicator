@@ -17,7 +17,7 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
-from .config import DATA_DIR
+from .config import DATA_DIR, TELEGRAM_RESUME_DATE
 from .fetchers import fetch_all, fetch_btc_price_daily, fetch_hash_rate, fetch_bitcoin_data_metric, BITCOIN_DATA_METRICS
 from .indicators import build_indicators, snapshot, compute_rsi_divergences
 from .composite import composite_score, compute_history, assign_dca_tiers
@@ -138,7 +138,11 @@ def main():
     print(f"[snapshot] salvato: {json_out}")
 
     if not args.no_telegram:
-        telegram_bot.send(result)
+        if TELEGRAM_RESUME_DATE and result["date"] < TELEGRAM_RESUME_DATE:
+            print(f"[telegram] Caffè quotidiano in pausa fino al {TELEGRAM_RESUME_DATE} "
+                  f"(ponte 2 giugno) — nessun invio oggi ({result['date']})")
+        else:
+            telegram_bot.send(result)
 
     return result
 
