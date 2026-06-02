@@ -1,79 +1,79 @@
 {
-  "date": "2026-06-01",
-  "btc_close": 73282.19,
-  "composite_score": 30.54,
+  "date": "2026-06-02",
+  "btc_close": 70241.15,
+  "composite_score": 28.44,
   "red_count": 0,
-  "green_count": 2,
-  "fav_count": 5,
+  "green_count": 3,
+  "fav_count": 6,
   "neg_count": 0,
-  "neu_count": 4,
+  "neu_count": 3,
   "signal": "ACCUMULATE",
-  "target_btc_exposure_pct": 87.5,
+  "target_btc_exposure_pct": 89.6,
   "dca_multiplier": 1.25,
   "indicators": {
     "pi_cycle": {
-      "value": 0.38805912737424947,
+      "value": 0.388549566862807,
       "score": 50,
       "zone": "neutral",
       "weight": 0.15
     },
     "mayer": {
-      "value": 0.922949050439596,
-      "score": 28.83942370734716,
+      "value": 0.8861132155237053,
+      "score": 26.900695553879224,
       "zone": "lime",
       "weight": 0.12
     },
     "two_year_ma": {
-      "value": 0.8372756716334809,
-      "score": 26.096343283337674,
+      "value": 0.8025237800856778,
+      "score": 25.074228826049346,
       "zone": "lime",
       "weight": 0.1
     },
     "mvrv_z": {
-      "value": 0.6766,
-      "score": 16.915,
+      "value": 0.6694,
+      "score": 16.735,
       "zone": "green",
       "weight": 0.18
     },
     "rsi_weekly": {
-      "value": 42.0237489820355,
-      "score": 17.55937245508875,
+      "value": 40.415935935709896,
+      "score": 13.539839839274743,
       "zone": "green",
       "weight": 0.1
     },
     "nupl": {
-      "value": 0.2727,
-      "score": 40.3375,
+      "value": 0.2504,
+      "score": 37.55,
       "zone": "neutral",
       "weight": 0.1
     },
     "puell": {
-      "value": 0.7821,
-      "score": 23.508333333333333,
-      "zone": "lime",
+      "value": 0.7179,
+      "score": 18.158333333333328,
+      "zone": "green",
       "weight": 0.1
     },
     "hash_ribbons": {
-      "value": 0.9861671854891042,
-      "score": 40.77812365940281,
+      "value": 0.9864362722865293,
+      "score": 40.957514857686206,
       "zone": "neutral",
       "weight": 0.08
     },
     "bmsb": {
-      "value": 0.9548454285846395,
-      "score": 35.9690857169279,
-      "zone": "neutral",
+      "value": 0.9168651938103017,
+      "score": 28.373038762060343,
+      "zone": "lime",
       "weight": 0.07
     }
   },
   "regime": "BULL",
   "regime_correction": true,
-  "sma_200w": 61854.21165,
-  "sma_200d": 79400.03835,
-  "dist_200d_pct": -7.7,
+  "sma_200w": 61844.44774999999,
+  "sma_200d": 79268.82115,
+  "dist_200d_pct": -11.4,
   "dca": {
     "level": "SOSTENUTO",
-    "reason": "Fase di accumulo favorevole su livelli storicamente solidi (composite basso). Il prezzo \u00e8 8% sotto la media a 200 giorni.",
+    "reason": "Fase di accumulo favorevole su livelli storicamente solidi (composite basso). Il prezzo \u00e8 11% sotto la media a 200 giorni.",
     "bot_state": "ATTIVO",
     "bot_action": "Fase favorevole: puoi valutare di incrementare leggermente l'importo della singola ricorrenza (ordine di grandezza +10-20%) mantenendo la stessa frequenza. Entit\u00e0 e decisione restano tue."
   },
@@ -82,5 +82,5 @@
   "last_divergence_age_days": null,
   "dca_buy_factor": 1.25,
   "reserve_balance": 0.0,
-  "dca_percentile": 30.6
+  "dca_percentile": 24.1
 }
