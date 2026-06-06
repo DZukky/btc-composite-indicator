@@ -1,7 +1,7 @@
 {
   "date": "2026-06-06",
-  "btc_close": 61003.71,
-  "composite_score": 20.92,
+  "btc_close": 60946.3,
+  "composite_score": 20.89,
   "red_count": 0,
   "green_count": 6,
   "fav_count": 7,
@@ -12,20 +12,20 @@
   "dca_multiplier": 1.25,
   "indicators": {
     "pi_cycle": {
-      "value": 0.3892421479285082,
+      "value": 0.38924005540313034,
       "score": 50,
       "zone": "neutral",
       "weight": 0.15
     },
     "mayer": {
-      "value": 0.7758707298797702,
-      "score": 15.73384123497128,
+      "value": 0.7751433953692265,
+      "score": 15.642924421153312,
       "zone": "green",
       "weight": 0.12
     },
     "two_year_ma": {
-      "value": 0.6973643818031438,
-      "score": 14.736438180314371,
+      "value": 0.6967087252983643,
+      "score": 14.670872529836421,
       "zone": "green",
       "weight": 0.1
     },
@@ -60,8 +60,8 @@
       "weight": 0.08
     },
     "bmsb": {
-      "value": 0.7962879080467425,
-      "score": 12.03598850584282,
+      "value": 0.7955385292171441,
+      "score": 11.942316152143011,
       "zone": "green",
       "weight": 0.07
     }
@@ -69,8 +69,8 @@
   "regime": "BEAR",
   "regime_correction": false,
   "sma_200w": 61844.44774999999,
-  "sma_200d": 78626.1263,
-  "dist_200d_pct": -22.4,
+  "sma_200d": 78625.83925,
+  "dist_200d_pct": -22.5,
   "dca": {
     "level": "SOSTENUTO",
     "reason": "Fase di accumulo favorevole su livelli storicamente solidi (composite basso). Il prezzo \u00e8 22% sotto la media a 200 giorni.",
