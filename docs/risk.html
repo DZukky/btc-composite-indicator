@@ -65,12 +65,11 @@
   .b-safe { background:#dcfce7; color:#15803d; } .b-watch { background:#fef3c7; color:#92400e; } .b-danger { background:#fee2e2; color:#991b1b; }
   .gauge-note { font-size:0.72em; color:#94a3b8; margin-top:5px; text-align:right; }
 
-  .tl-track { position:relative; margin:34px 14px 6px; height:2px; background:#e2e8f0; }
-  .tl-events { display:flex; justify-content:space-between; }
-  .tl-ev { position:relative; flex:1; text-align:center; padding:0 5px; }
-  .tl-dot { width:12px; height:12px; border-radius:50%; background:white; border:2px solid #d97706; margin:-40px auto 0; position:relative; z-index:2; }
-  .tl-dot.big { width:16px; height:16px; border-color:#dc2626; margin-top:-42px; }
-  .tl-date { font-size:0.78em; font-weight:700; color:#0f172a; margin-top:12px; }
+  .tl { display:flex; justify-content:space-between; border-top:2px solid #e2e8f0; margin:26px 8px 4px; }
+  .tl-ev { flex:1; text-align:center; padding:0 8px; }
+  .tl-dot { width:13px; height:13px; border-radius:50%; background:white; border:2px solid #d97706; margin:-7px auto 12px; }
+  .tl-dot.big { width:17px; height:17px; border-color:#dc2626; margin-top:-9px; }
+  .tl-date { font-size:0.78em; font-weight:700; color:#0f172a; }
   .tl-amt { font-weight:800; font-size:1.05em; margin-top:3px; }
   .tl-amt.red { color:#dc2626; } .tl-amt.amber { color:#d97706; }
   .tl-desc { font-size:0.7em; color:#64748b; margin-top:4px; line-height:1.45; }
@@ -114,9 +113,9 @@
   </div>
 
   <div class="card ctx">
-    <h2>⚠️ Di cosa parla questa pagina — il "cigno nero" Strategy</h2>
-    <p><b>Strategy</b> (ex MicroStrategy, ticker <b>MSTR</b>) è la più grande società quotata che tiene Bitcoin in tesoreria: centinaia di migliaia di BTC, comprati <b>a debito</b> tramite obbligazioni convertibili e azioni privilegiate. È diventata un pilastro — e quindi un rischio — per tutto il mercato.</p>
-    <p>Il pericolo da tenere d'occhio è un effetto domino <em>stile collasso FTX/Terra</em>: se il prezzo di BTC scende abbastanza, o se la struttura finanziaria di Strategy si incrina (riserva di cassa esaurita, scadenze obbligazionarie, esclusione dagli indici), la società potrebbe essere <b>costretta a vendere BTC in massa</b> — alimentando un ulteriore crollo. Non è imminente, ma è il singolo nodo sistemico più grosso oggi.</p>
+    <h2>⚠️ Di cosa parla questa pagina — il rischio sistemico Strategy/MSTR</h2>
+    <p><b>Strategy</b> (ex MicroStrategy, ticker <b>MSTR</b>) è la più grande società quotata che tiene Bitcoin in tesoreria: centinaia di migliaia di BTC, comprati <b>a debito</b> tramite obbligazioni convertibili e azioni privilegiate. Per la sua dimensione è diventata un nodo di <b>rischio sistemico (di concentrazione)</b> per tutto il mercato BTC.</p>
+    <p>Il pericolo da tenere d'occhio è un <b>effetto a catena</b>: se il prezzo di BTC scende abbastanza, o se la struttura finanziaria di Strategy si incrina (riserva di cassa esaurita, scadenze obbligazionarie, esclusione dagli indici), la società potrebbe essere <b>costretta a vendere BTC in massa</b> — alimentando un ulteriore crollo (una dinamica già vista in altri collassi del settore). Non è imminente, ma è il singolo nodo sistemico più grosso oggi.</p>
     <p style="margin-bottom:0">Questa pagina <b>non è una previsione</b>: è un cruscotto di sorveglianza sui <b>6 trigger</b> e sulle scadenze che farebbero scattare quel rischio.</p>
     <div class="legend">
       <span><i class="dot" style="background:#16a34a"></i> tranquillo</span>
@@ -238,15 +237,13 @@
   <div class="sec"><div class="t">③ Il muro di put delle convertibili</div><div class="rule"></div></div>
   <div class="card">
     <div style="font-size:0.88em;color:#475569;margin-bottom:4px;">Date in cui i detentori possono forzare il rimborso in contanti alla pari. La concentrazione del <b>2028 (~$4,1B+)</b> è la data strutturale chiave.</div>
-    <div class="tl-track">
-      <div class="tl-events">
-        <div class="tl-ev"><div class="tl-dot"></div><div class="tl-date">15 SET 2027</div><div class="tl-amt amber">$1,01B</div><div class="tl-desc">Note 2028 · prima richiesta cassa · conv. $183,19</div></div>
-        <div class="tl-ev"><div class="tl-dot big"></div><div class="tl-date">1 MAR 2028</div><div class="tl-amt red">$2,0B</div><div class="tl-desc">Note 2030B · 0% · conv. $433,43</div></div>
-        <div class="tl-ev"><div class="tl-dot big"></div><div class="tl-date">1 GIU 2028</div><div class="tl-amt red">$1,5B</div><div class="tl-desc">Note 2029 · 0% · conv. $672,40</div></div>
-        <div class="tl-ev"><div class="tl-dot"></div><div class="tl-date">15 SET 2028</div><div class="tl-amt amber">$604M</div><div class="tl-desc">Note 2031 · 0,875% · conv. $232,72</div></div>
-      </div>
+    <div class="tl">
+      <div class="tl-ev"><div class="tl-dot"></div><div class="tl-date">15 SET 2027</div><div class="tl-amt amber">$1,01B</div><div class="tl-desc">Note 2028 · prima richiesta cassa · conv. $183,19</div></div>
+      <div class="tl-ev"><div class="tl-dot big"></div><div class="tl-date">1 MAR 2028</div><div class="tl-amt red">$2,0B</div><div class="tl-desc">Note 2030B · 0% · conv. $433,43</div></div>
+      <div class="tl-ev"><div class="tl-dot big"></div><div class="tl-date">1 GIU 2028</div><div class="tl-amt red">$1,5B</div><div class="tl-desc">Note 2029 · 0% · conv. $672,40</div></div>
+      <div class="tl-ev"><div class="tl-dot"></div><div class="tl-date">15 SET 2028</div><div class="tl-amt amber">$604M</div><div class="tl-desc">Note 2031 · 0,875% · conv. $232,72</div></div>
     </div>
-    <div style="text-align:right;font-size:0.85em;color:#dc2626;margin-top:16px;font-weight:700;">2028 totale esercitabile in cassa ≈ $4,1B+ · tutte le conversioni out-of-the-money</div>
+    <div style="text-align:right;font-size:0.85em;color:#dc2626;margin-top:18px;font-weight:700;">2028 totale esercitabile in cassa ≈ $4,1B+ · tutte le conversioni out-of-the-money</div>
   </div>
 
   <div class="sec"><div class="t">④ Benchmark & target</div><div class="rule"></div></div>
