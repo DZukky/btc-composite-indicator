@@ -1,31 +1,31 @@
 {
   "date": "2026-06-06",
-  "btc_close": 60639.73,
-  "composite_score": 20.76,
+  "btc_close": 61053.16,
+  "composite_score": 20.94,
   "red_count": 0,
   "green_count": 6,
   "fav_count": 7,
   "neg_count": 0,
   "neu_count": 2,
   "signal": "ACCUMULATE",
-  "target_btc_exposure_pct": 94.9,
+  "target_btc_exposure_pct": 94.8,
   "dca_multiplier": 1.25,
   "indicators": {
     "pi_cycle": {
-      "value": 0.38922888117088805,
+      "value": 0.38925939412440663,
       "score": 50,
       "zone": "neutral",
       "weight": 0.15
     },
     "mayer": {
-      "value": 0.771259331579935,
-      "score": 15.157416447491872,
+      "value": 0.7764762916161302,
+      "score": 15.809536452016273,
       "zone": "green",
       "weight": 0.12
     },
     "two_year_ma": {
-      "value": 0.6932074927542244,
-      "score": 14.32074927542244,
+      "value": 0.6979244984817096,
+      "score": 14.792449848170952,
       "zone": "green",
       "weight": 0.1
     },
@@ -60,8 +60,8 @@
       "weight": 0.08
     },
     "bmsb": {
-      "value": 0.7915368384352246,
-      "score": 11.442104804403076,
+      "value": 0.7969333841506204,
+      "score": 12.116673018827555,
       "zone": "green",
       "weight": 0.07
     }
@@ -69,11 +69,11 @@
   "regime": "BEAR",
   "regime_correction": false,
   "sma_200w": 61844.44774999999,
-  "sma_200d": 78624.3064,
-  "dist_200d_pct": -22.9,
+  "sma_200d": 78628.49215,
+  "dist_200d_pct": -22.4,
   "dca": {
     "level": "SOSTENUTO",
-    "reason": "Fase di accumulo favorevole su livelli storicamente solidi (composite basso). Il prezzo \u00e8 23% sotto la media a 200 giorni.",
+    "reason": "Fase di accumulo favorevole su livelli storicamente solidi (composite basso). Il prezzo \u00e8 22% sotto la media a 200 giorni.",
     "bot_state": "ATTIVO",
     "bot_action": "Fase favorevole: puoi valutare di incrementare leggermente l'importo della singola ricorrenza (ordine di grandezza +10-20%) mantenendo la stessa frequenza. Entit\u00e0 e decisione restano tue."
   },
@@ -82,5 +82,5 @@
   "last_divergence_age_days": null,
   "dca_buy_factor": 1.25,
   "reserve_balance": 0.0,
-  "dca_percentile": 19.4
+  "dca_percentile": 19.5
 }

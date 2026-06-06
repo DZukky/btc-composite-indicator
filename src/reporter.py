@@ -1022,9 +1022,37 @@ def _hash_ribbons_alert(ind_df: pd.DataFrame, window_days: int = 180,
         "Rete miner in salute.")
 
 
+def _risk_banner(risk_summary: dict | None) -> str:
+    """Alert evidente e cliccabile verso il monitor rischio MSTR. Dinamico:
+    rosso se una soglia è critica, ambra se da osservare, verde se sotto controllo."""
+    s = risk_summary or {"level": "watch", "pill": "MONITORAGGIO",
+                         "headline": "rischio sistemico Strategy/MSTR", "n_danger": 0}
+    palette = {
+        "danger": ("#fef2f2", "#dc2626", "#991b1b", "🚨"),
+        "watch":  ("#fffbeb", "#d97706", "#92400e", "🛡️"),
+        "safe":   ("#f0fdf4", "#16a34a", "#15803d", "🛡️"),
+    }
+    bg, border, txt, icon = palette.get(s.get("level", "watch"), palette["watch"])
+    pill = s.get("pill", "MONITORAGGIO")
+    headline = s.get("headline", "")
+    return f"""
+<a href="risk.html" style="display:flex;align-items:center;gap:14px;text-decoration:none;
+   background:{bg};border:1.5px solid {border};border-left:6px solid {border};border-radius:12px;
+   padding:14px 18px;margin:0 0 22px">
+  <div style="font-size:1.6em;line-height:1">{icon}</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:800;color:{txt};font-size:0.97em;letter-spacing:0.01em">
+      RISCHIO SISTEMICO · STRATEGY/MSTR — <span style="text-transform:uppercase">{pill}</span></div>
+    <div style="color:#475569;font-size:0.86em;margin-top:2px">{headline}</div>
+  </div>
+  <div style="color:{border};font-weight:800;font-size:0.9em;white-space:nowrap">Apri il monitor →</div>
+</a>"""
+
+
 def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | None = None,
                     divergences: pd.DataFrame | None = None, news: dict | None = None,
-                    fng: dict | None = None) -> Path:
+                    fng: dict | None = None, risk_summary: dict | None = None) -> Path:
+    risk_banner = _risk_banner(risk_summary)
     prev_buy = None
     if history is not None and "dca_buy_factor" in history.columns and len(history) >= 2:
         try:
@@ -1126,8 +1154,9 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 26px">
     <span style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;color:#475569;font-size:0.85em;font-weight:600;padding:6px 13px;border-radius:20px">🗓️ Aggiornato il {date_it}</span>
     <span style="display:inline-flex;align-items:center;gap:6px;background:#fff7ed;color:#ea580c;font-size:0.95em;font-weight:800;padding:6px 14px;border-radius:20px;border:1px solid #fed7aa">₿ BTC {btc_price_str}</span>
-    <a href="risk.html" style="display:inline-flex;align-items:center;gap:6px;background:#fef2f2;color:#b91c1c;font-size:0.85em;font-weight:700;padding:6px 13px;border-radius:20px;border:1px solid #fecaca;text-decoration:none">🛡️ Rischio sistemico MSTR →</a>
   </div>
+
+  {risk_banner}
 
   {_section_header("①", "Il quadro di oggi")}
 

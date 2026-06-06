@@ -124,16 +124,19 @@ def main():
     save_history(history)
     print(f"[history] salvato: {HISTORY_FILE}")
 
-    out_html = build_dashboard(result, ind_df, history=history, divergences=divergences, news=news, fng=fng)
-    print(f"[dashboard] generata: {out_html}")
-
     # Dashboard rischio sistemico MSTR (pagina SEPARATA, isolata: se fallisce non
-    # tocca il btc-tool). Vedi src/risk.py + data/risk_facts.json.
+    # tocca il btc-tool). Costruita PRIMA così la home può mostrare l'alert dinamico.
+    risk_summary = None
     try:
         from .risk import build_risk_dashboard
-        print(f"[risk] dashboard MSTR generata: {build_risk_dashboard()}")
+        risk_summary = build_risk_dashboard()
+        print(f"[risk] dashboard MSTR generata · livello: {risk_summary.get('level')}")
     except Exception as exc:  # noqa: BLE001
         print(f"[risk] errore (ignorato): {exc}")
+
+    out_html = build_dashboard(result, ind_df, history=history, divergences=divergences,
+                               news=news, fng=fng, risk_summary=risk_summary)
+    print(f"[dashboard] generata: {out_html}")
 
     json_out = DATA_DIR / "latest_snapshot.json"
     json_out.write_text(json.dumps(

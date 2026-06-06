@@ -101,7 +101,37 @@ def build_risk_dashboard() -> str:
     t06_note = (f"già sotto $183 ma data lontana" if mstr < 183
                 else f"${mstr-183:.0f} sopra la soglia $183 &middot; monitorare")
 
+    # --- Livello di rischio COMPLESSIVO (pill header + riassunto per la home) ---
+    rank = {"lv-danger": 2, "lv-watch": 1, "lv-safe": 0}
+    # T02 riserva = danger fisso (fatto strutturale), T05 MSCI = watch, T04/T06 = safe
+    trig_levels = [t01_lv, "lv-danger", t03_lv, "lv-safe", "lv-watch", t06_lv]
+    worst = max(trig_levels, key=lambda x: rank[x])
+    n_danger = sum(1 for x in trig_levels if x == "lv-danger")
+    if worst == "lv-danger":
+        alert_pill, alert_class, level = "RISCHIO ELEVATO", "b-danger", "danger"
+    elif worst == "lv-watch":
+        alert_pill, alert_class, level = "DA OSSERVARE", "b-watch", "watch"
+    else:
+        alert_pill, alert_class, level = "SOTTO CONTROLLO", "b-safe", "safe"
+
+    # Titolo sintetico per il banner della home: evidenzia ciò che si MUOVE (prezzi)
+    hot = []
+    if btc <= 60000:
+        hot.append(_it(f"BTC ${btc/1000:.1f}K SOTTO il trigger $60K"))
+    elif t01_lv == "lv-watch":
+        hot.append(_it(f"BTC ${btc/1000:.1f}K vicino al trigger $60K"))
+    if strc < 95:
+        hot.append(_it(f"STRC ${strc:.0f} sotto $95"))
+    hot.append("riserva $ in esaurimento")
+    headline = " · ".join(hot[:3])
+
+    summary = {"level": level, "pill": alert_pill, "pill_class": alert_class,
+               "headline": headline, "n_danger": n_danger, "as_of": date.today().isoformat()}
+    (DATA_DIR / "risk_summary.json").write_text(json.dumps(summary, ensure_ascii=False))
+
     repl = {
+        "ALERT_PILL": alert_pill,
+        "ALERT_PILLCLASS": alert_class,
         "AS_OF_AUTO": date.today().isoformat(),
         "AS_OF_MANUAL": facts["as_of_manual"],
         "BTC_PRICE": _it(f"${btc/1000:.1f}K"),
@@ -129,7 +159,7 @@ def build_risk_dashboard() -> str:
         tpl = tpl.replace(f"%%{k}%%", str(v))
 
     OUT.write_text(tpl)
-    return str(OUT)
+    return summary
 
 
 if __name__ == "__main__":
