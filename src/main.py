@@ -146,11 +146,18 @@ def main():
     print(f"[snapshot] salvato: {json_out}")
 
     if not args.no_telegram:
+        marker = DATA_DIR / "telegram_last_sent.txt"
+        already_today = marker.exists() and marker.read_text().strip() == result["date"]
         if TELEGRAM_RESUME_DATE and result["date"] < TELEGRAM_RESUME_DATE:
             print(f"[telegram] Caffè quotidiano in pausa fino al {TELEGRAM_RESUME_DATE} "
                   f"(ponte 2 giugno) — nessun invio oggi ({result['date']})")
-        else:
-            telegram_bot.send(result)
+        elif already_today:
+            # Anti-doppione: il workflow può girare più volte al giorno (cron + deploy
+            # manuali). Inviamo il Caffè una sola volta per data.
+            print(f"[telegram] già inviato oggi ({result['date']}) — skip per evitare doppioni")
+        elif telegram_bot.send(result):
+            marker.write_text(result["date"])
+            print(f"[telegram] inviato e marcato per {result['date']}")
 
     return result
 
