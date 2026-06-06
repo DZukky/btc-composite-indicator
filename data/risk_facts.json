@@ -1,0 +1,20 @@
+{
+  "_nota": "Dati STRUTTURALI MSTR/Strategy (Tier B): cambiano solo su filing SEC / news. Aggiornali qui quando esce una trimestrale o un evento. I prezzi (BTC/MSTR/STRC) e mNAV sono invece automatici (Tier A, src/risk.py).",
+  "as_of_manual": "5–6 giugno 2026",
+  "btc_holdings": 640000,
+  "btc_holdings_nota": "n° BTC detenuti da Strategy — da aggiornare dagli 8-K quando comprano",
+  "mstr_shares_out": 285000000,
+  "mstr_shares_out_nota": "azioni in circolazione (diluite) — da aggiornare dalle 10-Q",
+  "btc_peak": 126000,
+  "btc_peak_label": "ott. 2025",
+  "reserve_usd_m": 871,
+  "reserve_from_usd_b": 2.25,
+  "cost_basis": 75700,
+  "strc_coupon": "11,5%",
+  "trigger_btc": 60000,
+  "trigger_strc": 95,
+  "trigger_mstr_put": 183,
+  "fallback_mstr": 120.44,
+  "fallback_strc": 93.4,
+  "fallback_nota": "usati solo se Yahoo non risponde (no-rompere)"
+}

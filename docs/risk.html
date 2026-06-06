@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strategy / BTC — Dashboard Trigger di Rischio</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Archivo:wght@600;700;800;900&display=swap');
+
+  :root {
+    --bg: #f2ece1;
+    --panel: #fdfbf6;
+    --panel-2: #e8e0d0;
+    --line: #c8bca6;
+    --line-bright: #a89a80;
+    --text: #1a1813;
+    --text-dim: #4a463c;
+    --text-faint: #767063;
+    --green: #1f7d4f;
+    --amber: #a8700f;
+    --red: #bf3b22;
+    --red-deep: #9e2e18;
+    --blue: #2a5ba8;
+    --mono: 'IBM Plex Mono', monospace;
+    --display: 'Archivo', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(31,125,79,0.05), transparent 42%),
+      radial-gradient(circle at 88% 92%, rgba(191,59,34,0.05), transparent 42%);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 32px 24px 64px;
+    min-height: 100vh;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  .backlink { display:inline-block; margin-bottom:18px; font-size:11px; color:var(--blue); text-decoration:none; letter-spacing:0.04em; }
+  .backlink:hover { text-decoration:underline; }
+
+  header {
+    border-bottom: 2px solid var(--line-bright);
+    padding-bottom: 20px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .title-block h1 {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 30px;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    color: #000;
+  }
+  .title-block .sub {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-top: 6px;
+    letter-spacing: 0.02em;
+  }
+  .clock { text-align: right; font-size: 11px; color: var(--text-dim); }
+  .clock .as-of { color: var(--red-deep); font-weight: 700; }
+  .live-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); margin-right: 6px;
+    box-shadow: 0 0 8px rgba(31,125,79,0.6); animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .disclaimer { font-size: 11px; color: var(--text-faint); margin: 14px 0 28px; letter-spacing: 0.01em; }
+
+  .banner {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: var(--line-bright); border: 1px solid var(--line-bright);
+    margin-bottom: 32px; box-shadow: 0 2px 0 rgba(168,154,128,0.35);
+  }
+  .stat { background: var(--panel); padding: 16px 18px; }
+  .stat .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
+  .stat .val { font-family: var(--display); font-weight: 800; font-size: 26px; margin-top: 4px; letter-spacing: -0.01em; }
+  .stat .meta { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .v-red { color: var(--red); }
+  .v-amber { color: var(--amber); }
+  .v-green { color: var(--green); }
+
+  .section-head { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; }
+  .section-head h2 {
+    font-family: var(--display); font-weight: 700; font-size: 13px;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--text);
+  }
+  .section-head .rule { flex: 1; height: 1px; background: var(--line-bright); }
+
+  .triggers { display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px; }
+
+  .trigger {
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 4px solid var(--line-bright); padding: 16px 20px;
+    display: grid; grid-template-columns: 30px 1fr 300px; gap: 24px;
+    align-items: center; transition: background 0.15s, box-shadow 0.15s;
+  }
+  .trigger:hover { background: #fff; box-shadow: 0 2px 12px rgba(90,80,60,0.12); }
+  .trigger.lv-safe { border-left-color: var(--green); }
+  .trigger.lv-watch { border-left-color: var(--amber); }
+  .trigger.lv-danger { border-left-color: var(--red); }
+
+  .t-num { font-family: var(--display); font-weight: 800; font-size: 18px; color: var(--text-faint); text-align: center; }
+  .t-body h3 { font-size: 14px; font-weight: 700; color: #000; margin-bottom: 4px; }
+  .t-body p { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+  .t-trigger-val { color: var(--red); font-weight: 700; }
+
+  .gauge-row { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-faint); margin-bottom: 14px; }
+  .gauge-row .now { color: var(--text); font-weight: 700; }
+  .gauge-track { position: relative; height: 9px; background: var(--panel-2); border: 1px solid var(--line-bright); border-radius: 2px; overflow: visible; }
+  .gauge-fill { position: absolute; top: 0; left: 0; bottom: 0; border-radius: 1px; }
+  .f-green { background: linear-gradient(90deg, #155c39, var(--green)); }
+  .f-amber { background: linear-gradient(90deg, #855809, var(--amber)); }
+  .f-red { background: linear-gradient(90deg, #8f2916, var(--red)); }
+  .gauge-marker { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #000; }
+  .gauge-marker::after {
+    content: 'TRIGGER'; position: absolute; bottom: -15px; left: 0;
+    font-size: 8px; font-weight: 600; letter-spacing: 0.1em; color: var(--text-dim); white-space: nowrap;
+  }
+  .gauge-status { font-size: 10.5px; margin-top: 18px; text-align: right; letter-spacing: 0.05em; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .b-safe { background: rgba(31,125,79,0.16); color: #155c39; border: 1px solid rgba(31,125,79,0.45); }
+  .b-watch { background: rgba(168,112,15,0.18); color: #855809; border: 1px solid rgba(168,112,15,0.5); }
+  .b-danger { background: rgba(191,59,34,0.16); color: var(--red-deep); border: 1px solid rgba(191,59,34,0.5); }
+  .gauge-note { font-size: 10px; color: var(--text-faint); margin-top: 5px; text-align: right; }
+
+  .timeline { background: var(--panel); border: 1px solid var(--line); padding: 24px 28px; margin-bottom: 40px; box-shadow: 0 2px 0 rgba(168,154,128,0.35); }
+  .tl-track { position: relative; margin: 34px 20px 10px; height: 2px; background: var(--line-bright); }
+  .tl-events { display: flex; justify-content: space-between; }
+  .tl-ev { position: relative; flex: 1; text-align: center; padding: 0 6px; }
+  .tl-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--panel); border: 2px solid var(--amber); margin: -40px auto 0; position: relative; z-index: 2; }
+  .tl-dot.big { width: 16px; height: 16px; border-color: var(--red); box-shadow: 0 0 10px rgba(191,59,34,0.4); margin-top: -42px; }
+  .tl-date { font-size: 11px; font-weight: 700; color: var(--text); margin-top: 12px; }
+  .tl-amt { font-family: var(--display); font-weight: 800; font-size: 16px; margin-top: 3px; }
+  .tl-amt.red { color: var(--red); }
+  .tl-amt.amber { color: var(--amber); }
+  .tl-desc { font-size: 9.5px; color: var(--text-dim); margin-top: 4px; line-height: 1.45; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  .card { background: var(--panel); border: 1px solid var(--line); padding: 22px; box-shadow: 0 2px 0 rgba(168,154,128,0.35); }
+  .card h3 { font-family: var(--display); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; color: var(--text); }
+  .bench-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 11.5px; }
+  .bench-row:last-child { border-bottom: none; }
+  .bench-label { flex: 1; color: var(--text-dim); }
+  .bench-bar-track { flex: 0 0 110px; height: 7px; background: var(--panel-2); border: 1px solid var(--line-bright); border-radius: 2px; overflow: hidden; }
+  .bench-bar { height: 100%; }
+  .bench-val { flex: 0 0 66px; text-align: right; font-weight: 700; color: var(--text); }
+
+  .pt-row { display: flex; align-items: center; gap: 14px; padding: 9px 0; font-size: 11.5px; border-bottom: 1px solid var(--line); }
+  .pt-row:last-of-type { border-bottom: none; }
+  .pt-firm { flex: 0 0 100px; color: var(--text-dim); font-weight: 500; }
+  .pt-track { flex: 1; position: relative; height: 10px; background: var(--panel-2); border: 1px solid var(--line-bright); border-radius: 2px; }
+  .pt-fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 1px; opacity: 0.85; }
+  .pt-val { flex: 0 0 56px; text-align: right; font-weight: 700; color: var(--text); }
+
+  footer { border-top: 2px solid var(--line-bright); padding-top: 18px; font-size: 11px; color: var(--text-faint); line-height: 1.65; }
+  footer strong { color: var(--text-dim); }
+  footer em { color: var(--red-deep); font-style: normal; font-weight: 600; }
+
+  @media (max-width: 760px) {
+    .banner { grid-template-columns: repeat(2,1fr); }
+    .trigger { grid-template-columns: 24px 1fr; }
+    .trigger .gauge { grid-column: 1 / -1; }
+    .grid2 { grid-template-columns: 1fr; }
+    .tl-amt { font-size: 13px; }
+    .tl-desc { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="backlink" href="index.html">&larr; Torna al BTC Composite Model</a>
+
+  <header>
+    <div class="title-block">
+      <h1>STRATEGY / BTC<br>DASHBOARD TRIGGER DI RISCHIO</h1>
+      <div class="sub">Monitoraggio dei livelli-soglia che cambierebbero la tesi &middot; MSTR + Bitcoin</div>
+    </div>
+    <div class="clock">
+      <div><span class="live-dot"></span>PREZZI AUTO &middot; STRUTTURA MANUALE</div>
+      <div class="as-of">prezzi al 2026-06-06</div>
+      <div id="now" style="margin-top:4px;"></div>
+    </div>
+  </header>
+
+  <div class="disclaimer">
+    &#9888; Strumento di monitoraggio, non consulenza finanziaria. <strong>Prezzi (BTC, MSTR, STRC) e mNAV aggiornati in automatico ogni giorno</strong> (2026-06-06). I dati <strong>strutturali</strong> (riserva, muro put, dividendi, MSCI, n° BTC) sono aggiornati a mano dai filing: ultimo aggiornamento <strong>5–6 giugno 2026</strong>.
+  </div>
+
+  <div class="banner">
+    <div class="stat">
+      <div class="label">Prezzo BTC</div>
+      <div class="val v-amber">$61,1K</div>
+      <div class="meta">&minus;52% dal picco ott. 2025 (~$126K)</div>
+    </div>
+    <div class="stat">
+      <div class="label">mNAV (base)</div>
+      <div class="val v-amber">0,88×</div>
+      <div class="meta">sconto sul NAV &middot; volano fermo</div>
+    </div>
+    <div class="stat">
+      <div class="label">Riserva $ Strategy</div>
+      <div class="val v-red">~$871M</div>
+      <div class="meta">da $2,25B &middot; ~6 mesi di dividendi</div>
+    </div>
+    <div class="stat">
+      <div class="label">STRC (preferred)</div>
+      <div class="val v-red">$93,40</div>
+      <div class="meta">sotto la pari ($100) &middot; cedola 11,5%</div>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <h2>I 6 trigger che cambiano la tesi</h2>
+    <div class="rule"></div>
+  </div>
+
+  <div class="triggers">
+
+    <div class="trigger lv-watch">
+      <div class="t-num">01</div>
+      <div class="t-body">
+        <h3>BTC sotto $60.000</h3>
+        <p>Il livello di "chiusura dei mercati dei capitali" di Burry. Sotto questa soglia il rischio di vendite forzate cresce in modo non lineare. <span class="t-trigger-val">Trigger: $60K</span></p>
+      </div>
+      <div class="gauge">
+        <div class="gauge-row"><span>$60K</span><span class="now">ora ~$61K</span><span>$90K</span></div>
+        <div class="gauge-track"><div class="gauge-fill f-amber" style="width:4%"></div><div class="gauge-marker" style="left:0%"></div></div>
+        <div class="gauge-status"><span class="badge b-watch">Vicino</span></div>
+        <div class="gauge-note">~$1K di margine sopra il trigger</div>
+      </div>
+    </div>
+
+    <div class="trigger lv-danger">
+      <div class="t-num">02</div>
+      <div class="t-body">
+        <h3>Riserva in dollari verso zero</h3>
+        <p>Gi&agrave; scesa da $2,25B a ~$871M dopo il riacquisto convertibili pagato in cassa. Un altro buyback cash o l'azzeramento forzerebbe vendite di BTC. <span class="t-trigger-val">Trigger: nuovo calo / altro buyback</span></p>
+      </div>
+      <div class="gauge">
+        <div class="gauge-row"><span>$0</span><span class="now">ora $871M</span><span>$2,25B</span></div>
+        <div class="gauge-track"><div class="gauge-fill f-red" style="width:39%"></div><div class="gauge-marker" style="left:0%"></div></div>
+        <div class="gauge-status"><span class="badge b-danger">Critico</span></div>
+        <div class="gauge-note">copre solo ~6 dei 24 mesi previsti</div>
+      </div>
+    </div>
+
+    <div class="trigger lv-danger">
+      <div class="t-num">03</div>
+      <div class="t-body">
+        <h3>STRC stabilmente sotto ~$95</h3>
+        <p>Sotto questo livello scatterebbero aumenti del tasso di dividendo per difendere la pari, alzando il costo del capitale e stressando la "franchigia" STRC. <span class="t-trigger-val">Trigger: &lt; $95</span></p>
+      </div>
+      <div class="gauge">
+        <div class="gauge-row"><span>$95</span><span class="now">ora $93,40</span><span>$100</span></div>
+        <div class="gauge-track"><div class="gauge-fill f-red" style="width:0%"></div><div class="gauge-marker" style="left:0%"></div></div>
+        <div class="gauge-status"><span class="badge b-danger">Sotto trigger</span></div>
+        <div class="gauge-note">sotto il trigger di $1,60</div>
+      </div>
+    </div>
+
+    <div class="trigger lv-safe">
+      <div class="t-num">04</div>
+      <div class="t-body">
+        <h3>Differimento dividendi preferred</h3>
+        <p>Evento binario. Qualsiasi differimento/sospensione delle cedole sulle preferred sarebbe un segnale di stress grave: danneggia credito e accesso al mercato STRC. <span class="t-trigger-val">Trigger: qualsiasi differimento</span></p>
+      </div>
+      <div class="gauge">
+        <div class="gauge-row"><span>STATO</span><span class="now">tutti pagati</span></div>
+        <div class="gauge-track"><div class="gauge-fill f-green" style="width:100%"></div></div>
+        <div class="gauge-status"><span class="badge b-safe">OK &mdash; nessun differimento</span></div>
+        <div class="gauge-note">vendita BTC scelta al posto del differimento</div>
+      </div>
+    </div>
+
+    <div class="trigger lv-watch">
+      <div class="t-num">05</div>
+      <div class="t-body">
+        <h3>Consultazione MSCI riapre l'esclusione</h3>
+        <p>A gennaio 2026 MSCI ha rinviato, ma ha aperto una "consultazione pi&ugrave; ampia" sulle societ&agrave; non operative. Esclusione = vendite passive forzate (~$2,8B fino a ~$8,8B). <span class="t-trigger-val">Trigger: esito consultazione</span></p>
+      </div>
+      <div class="gauge">
+        <div class="gauge-row"><span>STATO</span><span class="now">in consultazione</span></div>
+        <div class="gauge-track"><div class="gauge-fill f-amber" style="width:55%"></div></div>
+        <div class="gauge-status"><span class="badge b-watch">Incognita aperta</span></div>
+        <div class="gauge-note">pallottola schivata a gen. ma non risolta</div>
+      </div>
+    </div>
+
+    <div class="trigger lv-safe">
+      <div class="t-num">06</div>
+      <div class="t-body">
+        <h3>Put 15 set. 2027 con MSTR sotto $183</h3>
+        <p>Prima vera richiesta di cassa (~$1,01B note 2028). Sotto $183,19 (&asymp;BTC $91,5K a mNAV 1,0) Strategy dovrebbe vendere BTC per rimborsare. <span class="t-trigger-val">Trigger: MSTR &lt; $183 vicino alla data</span></p>
+      </div>
+      <div class="gauge">
+        <div class="gauge-row"><span>oggi</span><span class="now">15 set 2027</span></div>
+        <div class="gauge-track"><div class="gauge-fill f-green" style="width:25%"></div></div>
+        <div class="gauge-status"><span class="badge b-safe">Lontano (~15 mesi)</span></div>
+        <div class="gauge-note">MSTR ora $120,44 &middot; già sotto $183 ma data lontana</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-head">
+    <h2>Il muro di put delle convertibili</h2>
+    <div class="rule"></div>
+  </div>
+  <div class="timeline">
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Date in cui i detentori possono forzare il rimborso in contanti alla pari. La concentrazione del 2028 (~$4,1B+) &egrave; la data strutturale chiave.</div>
+    <div class="tl-track">
+      <div class="tl-events">
+        <div class="tl-ev">
+          <div class="tl-dot"></div>
+          <div class="tl-date">15 SET 2027</div>
+          <div class="tl-amt amber">$1,01B</div>
+          <div class="tl-desc">Note 2028 &middot; prima richiesta cassa &middot; conv. $183,19</div>
+        </div>
+        <div class="tl-ev">
+          <div class="tl-dot big"></div>
+          <div class="tl-date">1 MAR 2028</div>
+          <div class="tl-amt red">$2,0B</div>
+          <div class="tl-desc">Note 2030B &middot; 0% &middot; conv. $433,43</div>
+        </div>
+        <div class="tl-ev">
+          <div class="tl-dot big"></div>
+          <div class="tl-date">1 GIU 2028</div>
+          <div class="tl-amt red">$1,5B</div>
+          <div class="tl-desc">Note 2029 &middot; 0% &middot; conv. $672,40</div>
+        </div>
+        <div class="tl-ev">
+          <div class="tl-dot"></div>
+          <div class="tl-date">15 SET 2028</div>
+          <div class="tl-amt amber">$604M</div>
+          <div class="tl-desc">Note 2031 &middot; 0,875% &middot; conv. $232,72</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:var(--red);margin-top:18px;font-weight:700;">2028 totale esercitabile in cassa &asymp; $4,1B+ &middot; tutte le conversioni out-of-the-money</div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Benchmark di solvibilit&agrave; (Saylor)</h3>
+      <div class="bench-row"><span class="bench-label">BTC "break" dichiarato</span><span class="bench-bar-track"><span class="bench-bar f-green" style="width:12%"></span></span><span class="bench-val">$8.000</span></div>
+      <div class="bench-row"><span class="bench-label">Livello esistenziale (Burry)</span><span class="bench-bar-track"><span class="bench-bar f-red" style="width:48%"></span></span><span class="bench-val">$60.000</span></div>
+      <div class="bench-row"><span class="bench-label">BTC attuale</span><span class="bench-bar-track"><span class="bench-bar f-amber" style="width:48%"></span></span><span class="bench-val">~$61.053</span></div>
+      <div class="bench-row"><span class="bench-label">Costo medio carico</span><span class="bench-bar-track"><span class="bench-bar f-amber" style="width:60%"></span></span><span class="bench-val">$75.700</span></div>
+      <div class="bench-row"><span class="bench-label">Soglia put set-2027</span><span class="bench-bar-track"><span class="bench-bar" style="width:73%;background:var(--blue)"></span></span><span class="bench-val">$91.500</span></div>
+      <div style="font-size:10px;color:var(--text-faint);margin-top:12px;line-height:1.5;">Scala 0&rarr;$126K. Nessun trigger meccanico di margin-call: il rischio &egrave; discrezionale, non automatico.</div>
+    </div>
+
+    <div class="card">
+      <h3>Price target analisti (MSTR) &middot; range $54&ndash;$400</h3>
+      <div class="pt-row"><span class="pt-firm">Wells Fargo</span><span class="pt-track"><span class="pt-fill f-red" style="width:14%"></span></span><span class="pt-val">$54</span></div>
+      <div class="pt-row"><span class="pt-firm">Canaccord</span><span class="pt-track"><span class="pt-fill f-amber" style="width:46%"></span></span><span class="pt-val">$185</span></div>
+      <div class="pt-row"><span class="pt-firm">Mizuho</span><span class="pt-track"><span class="pt-fill f-amber" style="width:66%"></span></span><span class="pt-val">$265</span></div>
+      <div class="pt-row"><span class="pt-firm">Consenso medio</span><span class="pt-track"><span class="pt-fill" style="width:96%;background:var(--blue)"></span></span><span class="pt-val">~$385</span></div>
+      <div class="pt-row"><span class="pt-firm">TD Cowen</span><span class="pt-track"><span class="pt-fill f-green" style="width:100%"></span></span><span class="pt-val">$400</span></div>
+      <div style="font-size:10px;color:var(--text-faint);margin-top:12px;line-height:1.5;">Barre proporzionali al PT (scala fino a $400). Rating consenso "Strong/Moderate Buy" ma dispersione enorme = disaccordo reale toro/orso.</div>
+    </div>
+  </div>
+
+  <footer>
+    <strong>Cosa monitorare in sintesi:</strong> il pericolo non &egrave; la singola vendita da $2,5M, ma (a) Strategy che diventa venditore netto <em>sostenuto</em>, (b) la riserva $ verso zero, (c) il muro di put 2028. Nessuna insolvenza imminente &mdash; struttura del capitale non garantita e scadenze lunghe &mdash; ma rischio elevato di sentiment/struttura per BTC.<br><br>
+    <strong>Fonti dati:</strong> prezzi via Yahoo Finance + BTC Composite &middot; dati strutturali da filing SEC 8-K/10-Q, Bloomberg, CoinDesk, BitcoinTreasuries.net (aggiornamento manuale 5–6 giugno 2026).
+  </footer>
+
+</div>
+
+<script>
+  function tick(){
+    var el = document.getElementById('now');
+    if(el){ el.textContent = 'apertura pagina: ' + new Date().toLocaleString('it-IT'); }
+  }
+  tick();
+</script>
+</body>
+</html>

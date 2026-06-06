@@ -127,6 +127,14 @@ def main():
     out_html = build_dashboard(result, ind_df, history=history, divergences=divergences, news=news, fng=fng)
     print(f"[dashboard] generata: {out_html}")
 
+    # Dashboard rischio sistemico MSTR (pagina SEPARATA, isolata: se fallisce non
+    # tocca il btc-tool). Vedi src/risk.py + data/risk_facts.json.
+    try:
+        from .risk import build_risk_dashboard
+        print(f"[risk] dashboard MSTR generata: {build_risk_dashboard()}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[risk] errore (ignorato): {exc}")
+
     json_out = DATA_DIR / "latest_snapshot.json"
     json_out.write_text(json.dumps(
         {**result,

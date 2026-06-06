@@ -1126,6 +1126,7 @@ def build_dashboard(result: dict, ind_df: pd.DataFrame, history: pd.DataFrame | 
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 26px">
     <span style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;color:#475569;font-size:0.85em;font-weight:600;padding:6px 13px;border-radius:20px">🗓️ Aggiornato il {date_it}</span>
     <span style="display:inline-flex;align-items:center;gap:6px;background:#fff7ed;color:#ea580c;font-size:0.95em;font-weight:800;padding:6px 14px;border-radius:20px;border:1px solid #fed7aa">₿ BTC {btc_price_str}</span>
+    <a href="risk.html" style="display:inline-flex;align-items:center;gap:6px;background:#fef2f2;color:#b91c1c;font-size:0.85em;font-weight:700;padding:6px 13px;border-radius:20px;border:1px solid #fecaca;text-decoration:none">🛡️ Rischio sistemico MSTR →</a>
   </div>
 
   {_section_header("①", "Il quadro di oggi")}

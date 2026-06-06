@@ -1,7 +1,7 @@
 {
   "date": "2026-06-06",
-  "btc_close": 60995.2,
-  "composite_score": 20.91,
+  "btc_close": 61053.16,
+  "composite_score": 20.94,
   "red_count": 0,
   "green_count": 6,
   "fav_count": 7,
@@ -12,20 +12,20 @@
   "dca_multiplier": 1.25,
   "indicators": {
     "pi_cycle": {
-      "value": 0.38924183774971993,
+      "value": 0.38925939412440663,
       "score": 50,
       "zone": "neutral",
       "weight": 0.15
     },
     "mayer": {
-      "value": 0.7757629159547196,
-      "score": 15.720364494339947,
+      "value": 0.7764762916161302,
+      "score": 15.809536452016273,
       "zone": "green",
       "weight": 0.12
     },
     "two_year_ma": {
-      "value": 0.6972671925925001,
-      "score": 14.72671925925001,
+      "value": 0.6979244984817096,
+      "score": 14.792449848170952,
       "zone": "green",
       "weight": 0.1
     },
@@ -60,8 +60,8 @@
       "weight": 0.08
     },
     "bmsb": {
-      "value": 0.7961768261125867,
-      "score": 12.022103264073335,
+      "value": 0.7969333841506204,
+      "score": 12.116673018827555,
       "zone": "green",
       "weight": 0.07
     }
@@ -69,7 +69,7 @@
   "regime": "BEAR",
   "regime_correction": false,
   "sma_200w": 61844.44774999999,
-  "sma_200d": 78626.08375,
+  "sma_200d": 78628.49215,
   "dist_200d_pct": -22.4,
   "dca": {
     "level": "SOSTENUTO",
