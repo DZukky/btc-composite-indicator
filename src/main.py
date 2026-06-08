@@ -162,6 +162,14 @@ def main():
             marker.write_text(result["date"])
             print(f"[telegram] inviato e marcato per {result['date']}")
 
+        # Avviso rischio MSTR — event-driven, solo sui CAMBI di stato (indipendente
+        # dal Caffè e dal suo marker; pubblico separato via RISK_ALERT_CHAT_IDS).
+        try:
+            from .risk import maybe_send_risk_alert
+            maybe_send_risk_alert(risk_summary)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[risk-alert] errore (ignorato): {exc}")
+
     return result
 
 

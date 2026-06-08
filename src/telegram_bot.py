@@ -180,6 +180,34 @@ def send(result: dict, dashboard_url: str | None = None) -> bool:
     return ok
 
 
+def send_message(text: str, ids_env: str = "TELEGRAM_CHAT_IDS") -> bool:
+    """Invia un testo HTML arbitrario (es. alert di rischio) ai chat_id di `ids_env`.
+
+    `ids_env` permette un pubblico diverso dal Caffè (es. RISK_ALERT_CHAT_IDS per
+    mandare gli avvisi rischio solo ad alcuni). Fallback a TELEGRAM_CHAT_IDS.
+    """
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    raw_ids = os.environ.get(ids_env) or os.environ.get("TELEGRAM_CHAT_IDS") or os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not raw_ids:
+        print(f"[telegram] token o {ids_env} non impostati, skip invio")
+        return False
+    chat_ids = [c.strip() for c in raw_ids.split(",") if c.strip()]
+    ok = True
+    for chat_id in chat_ids:
+        r = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text, "parse_mode": "HTML",
+                  "disable_web_page_preview": True},
+            timeout=20,
+        )
+        if r.status_code >= 300:
+            print(f"[telegram] errore invio a {chat_id}: {r.status_code} {r.text[:200]}")
+            ok = False
+        else:
+            print(f"[telegram] alert inviato a chat {chat_id}")
+    return ok
+
+
 def get_updates_chat_ids(token: str) -> list[dict]:
     """Helper per scoprire il CHAT_ID dopo che l'utente ha scritto al bot.
 

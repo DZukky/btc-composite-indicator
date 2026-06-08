@@ -7,6 +7,8 @@ si rompe il btc-tool non se ne accorge. Due tier di dati:
     aggiornato a mano dai filing SEC.
 Se Yahoo non risponde → fallback ai prezzi in risk_facts.json (no-rompere).
 """
+from __future__ import annotations
+
 import json
 import urllib.request
 from datetime import date
@@ -126,7 +128,8 @@ def build_risk_dashboard() -> str:
     headline = " · ".join(hot[:3])
 
     summary = {"level": level, "pill": alert_pill, "pill_class": alert_class,
-               "headline": headline, "n_danger": n_danger, "as_of": date.today().isoformat()}
+               "headline": headline, "n_danger": n_danger, "as_of": date.today().isoformat(),
+               "btc_zone": t01_lv, "strc_zone": t03_lv, "btc": btc, "strc": strc, "mnav": round(mnav, 3)}
     (DATA_DIR / "risk_summary.json").write_text(json.dumps(summary, ensure_ascii=False))
 
     repl = {
@@ -160,6 +163,64 @@ def build_risk_dashboard() -> str:
 
     OUT.write_text(tpl)
     return summary
+
+
+# --- Alert Telegram event-driven (solo sui CAMBI di stato, non ogni giorno) ----
+ALERT_STATE = DATA_DIR / "risk_alert_state.json"
+DASHBOARD_RISK_URL = "https://btc-composite-dzukky.pages.dev/risk"
+_ZONE_RANK = {"lv-safe": 0, "lv-watch": 1, "lv-danger": 2}
+
+
+def _btc_line(prev, cur, summary):
+    px = _it(f"${summary['btc']/1000:.1f}K")  # comma SOLO sul decimale di questo numero
+    if cur == "lv-danger":
+        return f"🚨 <b>BTC è sceso SOTTO $60.000</b> (ora {px}), la soglia 'esistenziale' di Strategy. Sale il rischio di vendite forzate."
+    if cur == "lv-watch":
+        return f"🟠 <b>BTC vicino al trigger $60.000</b> (ora {px}). Da tenere d'occhio."
+    return f"✅ <b>BTC è risalito</b> a {px}, di nuovo a distanza dal trigger $60.000."
+
+
+def _strc_line(prev, cur, summary):
+    px = _it(f"${summary['strc']:.2f}")
+    if cur == "lv-danger":
+        return f"🟠 <b>STRC sotto $95</b> (ora {px}): possibili aumenti del dividendo di Strategy, costo del capitale in salita."
+    return f"✅ <b>STRC è risalito sopra $95</b> (ora {px})."
+
+
+def maybe_send_risk_alert(summary: dict | None) -> None:
+    """Invia un avviso Telegram SOLO quando una soglia monitorata cambia stato.
+
+    Stato in data/risk_alert_state.json (committato → persiste). Primo run: seed
+    silenzioso (nessun invio, per non blastare la condizione preesistente).
+    Pubblico: RISK_ALERT_CHAT_IDS (default = solo Davide via secret).
+    """
+    if not summary:
+        return
+    from . import telegram_bot
+    cur = {"btc_zone": summary["btc_zone"], "strc_zone": summary["strc_zone"],
+           "overall": summary["level"]}
+    if not ALERT_STATE.exists():
+        ALERT_STATE.write_text(json.dumps(cur))
+        print("[risk-alert] stato iniziale salvato (nessun invio)")
+        return
+    prev = json.loads(ALERT_STATE.read_text())
+
+    lines = []
+    if cur["btc_zone"] != prev.get("btc_zone"):
+        lines.append(_btc_line(prev.get("btc_zone"), cur["btc_zone"], summary))
+    if cur["strc_zone"] != prev.get("strc_zone"):
+        lines.append(_strc_line(prev.get("strc_zone"), cur["strc_zone"], summary))
+    if not lines:
+        return  # nessun cambio → nessun messaggio
+
+    body = "\n\n".join(lines)
+    msg = (f"<b>🛡️ Avviso rischio sistemico · Strategy/MSTR</b>\n\n{body}\n\n"
+           f"<i>Questo NON tocca il tuo accumulo BTC: è un monitor del rischio strutturale "
+           f"del più grande detentore corporate.</i>\n"
+           f"🔍 <a href='{DASHBOARD_RISK_URL}'>Apri il monitor completo</a>")
+    if telegram_bot.send_message(msg, ids_env="RISK_ALERT_CHAT_IDS"):
+        ALERT_STATE.write_text(json.dumps(cur))
+        print(f"[risk-alert] inviato ({len(lines)} cambi)")
 
 
 if __name__ == "__main__":

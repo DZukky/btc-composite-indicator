@@ -26,6 +26,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_IDS:  ${{ secrets.TELEGRAM_CHAT_IDS }}
+          RISK_ALERT_CHAT_IDS: ${{ secrets.RISK_ALERT_CHAT_IDS }}
           DASHBOARD_URL:      ${{ secrets.DASHBOARD_URL }}
         # Caffè quotidiano RIATTIVATO: l'invio Telegram è regolato da TELEGRAM_RESUME_DATE
         # in config.py (muto fino al 2026-06-03 incluso ponte 2 giugno, poi parte ogni giorno).
